@@ -4,7 +4,9 @@ Crush your friends and foes using this automated tool
 that fetchs the example, the problem and
 automates trivial parts of the solving process.
 
-Usage: `./cp`
+Usage: `./aoc`
+
+
 
 ## Notes
 
