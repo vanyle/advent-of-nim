@@ -159,7 +159,7 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
 
 proc setupProblem(year: int, day: int, forceUpdate: bool = false) =
     # Check if we need to download the problem statement:
-    if not fileExists(fmt"cases/{year}/{day}/problem1.txt") or forceUpdate:
+    if not fileExists(fmt"cases/{year}/{day}/problem/problem1.txt") or forceUpdate:
         var task = downloadTask(year, day)
         let articles = extractArticles(task)
 
@@ -200,9 +200,15 @@ proc setupProblem(year: int, day: int, forceUpdate: bool = false) =
         discard execCmd(fmt"subl {solutionPath}")
     else:
         # Run the solution, get the numbers and submit them.
-        var process = startProcess(fmt"nim r {solutionPath}")
-        process.inputStream().write("")
+        echo "Executing solution ..."
+        var process = startProcess("nim", workingDir = getCurrentDir(), args = ["r","--hints:off","--warnings:off", solutionPath])
+        process.inputStream().write("test")
+        process.inputStream().write("moare data")
         process.inputStream().close()
+        discard process.waitForExit()
+        var result = process.outputStream().readAll()
+        # process.close()
+        echo result
 
         # Waiting for some kind of a response, fossa.
 
