@@ -7,8 +7,9 @@
 ]#
 
 #? replace(sub = "\t", by = "  ")
-import strformat, httpclient, os, strutils, parsexml, streams, osproc
+import strformat, httpclient, os, strutils, parsexml, streams, osproc, strutils
 
+const textEditor = "code" # or subl, as you'd like.
 
 # let starting_year = 2015
 
@@ -19,7 +20,7 @@ if fileExists(credentialsFilePath):
     authString = readFile(credentialsFilePath)
 
 if authString == "":
-    echo "Credentials file not found or is empty."
+    echo "Credentials file not found or is empty. (credentials.txt)"
     echo "Fill it with your session cookie like this: session=..."
     quit(1)
 
@@ -30,7 +31,7 @@ proc extractArticles(source: string): seq[string] =
     # </article>
 
     var results: seq[string]
-    var i = 0 
+    var i = 0
 
     let startCue = "<article class=\"day-desc\">"
     let endCue = "</article>"
@@ -67,13 +68,13 @@ proc articleToMarkdown(source: string): string =
             if x.elementName == "li":
                 result.add "- "
             if x.elementName == "ul":
-                result.add "\n"     
+                result.add "\n"
         of xmlElementEnd:
             if x.elementName == "code":
                 result.add "```"
             if x.elementName == "em":
                 result.add "* "
-            if x.elementName in ["p","li","ul","h1","h2"]:
+            if x.elementName in ["p", "li", "ul", "h1", "h2"]:
                 result.add "\n"
             if x.elementName == "h2":
                 result.add "\n" # two line breaks after a title.
@@ -95,16 +96,19 @@ proc getTestSolutionPairs(year: int, day: int, problemIdx: int): seq[(string, st
     let content = readFile(problemFile)
 
     let parts = content.split("=== ADVENTOFCODE CASE ===", 1)
+
+
     if parts.len == 1: return @[]
-    let cases = parts[0].split("=== ADVENTOFCODE CASE ===")
+    let cases = parts[1].split("=== ADVENTOFCODE CASE ===")
 
     for e in cases:
         var r = e.split("=== ADVENTOFCODE SOLUTION ===", 1)
         if r.len == 2:
-            result.add (r[0],r[1])
+            result.add (r[0], r[1].strip())
 
 
-proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1, openEditor = true) =
+proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1,
+        openEditor = true) =
     # Not possible in general without humain input ...
     var toWrite = "=== PROBLEM STATEMENT ====\n"
     toWrite.add problem
@@ -121,19 +125,19 @@ proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1,
             toWrite.add "???"
         if testSolutions.len != 0:
             filledCases = true
-    
+
     if not filledCases: # Use this template by default.
         toWrite.add "=== ADVENTOFCODE CASE ===\n"
         toWrite.add "(())\n"
         toWrite.add "=== ADVENTOFCODE SOLUTION ===\n"
         toWrite.add "0"
-    
+
     var filePath = fmt"cases/{year}/{day}/problem/problem{problemIdx}.txt"
     createFileIfNotExists(filePath)
     writeFile(filePath, toWrite)
 
     if openEditor:
-        discard execCmd(fmt"subl {filePath}") # open sublime.
+        discard execCmd(fmt"{textEditor} {filePath}") # open text editor
 
 
 proc downloadTask(year: int, day: int, isInput: bool = false): string =
@@ -154,7 +158,7 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
     finally:
         client.close()
 
-    echo "Network failure, unable to download: ",url
+    echo "Network failure, unable to download: ", url
     quit(1)
 
 proc setupProblem(year: int, day: int, forceUpdate: bool = false) =
@@ -197,18 +201,41 @@ proc setupProblem(year: int, day: int, forceUpdate: bool = false) =
 
     if readFile(solutionPath).len == 0:
         writeFile(solutionPath, solutionTemplate)
-        discard execCmd(fmt"subl {solutionPath}")
+        discard execCmd(fmt"{textEditor} {solutionPath}")
     else:
         # Run the solution, get the numbers and submit them.
-        echo "Executing solution ..."
-        var process = startProcess("nim", workingDir = getCurrentDir(), args = ["r","--hints:off","--warnings:off", solutionPath])
-        process.inputStream().write("test")
-        process.inputStream().write("moare data")
+        echo fmt"Executing solution for {year}/{day}"
+        var process = startProcess(
+                "nim", workingDir = getCurrentDir(),
+                args = ["r", "--hints:off", "--warnings:off", solutionPath],
+                options = {poUsePath})
+
+        # Get the test data.
+        var testData = getTestSolutionPairs(year, day, 1)
+
+        if testData.len == 0:
+            echo "No test data found."
+            return
+        var (test, solution) = testData[0]
+        process.inputStream().write(test)
         process.inputStream().close()
         discard process.waitForExit()
         var result = process.outputStream().readAll()
-        # process.close()
-        echo result
+        process.close()
+        let lines = result.split("\n")
+        var programResult = ""
+
+        const seek = "Part 1 result:"
+        for line in lines:
+            if line.startswith(seek):
+                programResult = line[seek.len..<line.len].strip()
+
+        if programResult == solution:
+            echo "Program is correct !"
+        else:
+            echo "Program is not correct !"
+            echo "Got: ", programResult
+            echo "Expected: ", solution
 
         # Waiting for some kind of a response, fossa.
 

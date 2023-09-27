@@ -3,18 +3,16 @@
 # a sat solver
 # and other goodies.
 
-import strformat
-
-proc run*(year: int, day: int, part1: proc(s: string): string, part2: proc(s: string): string) =
-    # Test that the program works on the test cases and if so, submit it.
-    # Also, have a timing system ?
-    echo fmt"Running {year}/{day}"
-    
+proc run*(year: int, day: int, part1: proc(s: string): string, part2: proc(
+        s: string): string) =
     var everything = stdin.readAll()
-    echo everything
-    
+
     if part1 != nil:
-        echo part1("hello part1 !")
+        echo "Running part 1: "
+        var p1_result = part1(everything)
+        echo "Part 1 result: ", p1_result
 
     if part2 != nil:
-        echo part1("hello part2 !")
+        echo "Running part 2: "
+        var p2_result = part2(everything)
+        echo "Part 2 result: ", p2_result

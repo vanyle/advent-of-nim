@@ -19,6 +19,10 @@ To *what floor* do the instructions take Santa?
 
 Add your test cases below. You can add multiple cases if you need
 === ADVENTOFCODE CASE ===
-(())
+(()
 === ADVENTOFCODE SOLUTION ===
-0
+1
+=== ADVENTOFCODE CASE ===
+(((
+=== ADVENTOFCODE SOLUTION ===
+3
