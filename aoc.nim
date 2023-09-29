@@ -173,7 +173,7 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
 
     var process = startProcess(
             "nim", workingDir = getCurrentDir(),
-            args = ["r", "--hints:off", "--warnings:off", solutionPath],
+            args = ["r","-d:release", "--hints:off", "--warnings:off", solutionPath],
             options = {poUsePath})
 
     process.inputStream().write(input)
