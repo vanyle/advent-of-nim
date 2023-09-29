@@ -1,0 +1,20 @@
+=== PROBLEM STATEMENT ====
+--- Part Two ---
+
+Now, given the same instructions, find the *position* of the first character that causes him to enter the basement (floor ```-1```).  The first character in the instructions has position ```1```, the second character has position ```2```, and so on.
+For example:
+
+- ```)```causes him to enter the basement at character position ```1```.
+- ```()())```causes him to enter the basement at character position ```5```.
+
+What is the *position* of the character that causes Santa to first enter the basement?
+
+Add your test cases below. You can add multiple cases if you need
+=== ADVENTOFCODE CASE ===
+)
+=== ADVENTOFCODE SOLUTION ===
+1
+=== ADVENTOFCODE CASE ===
+()())
+=== ADVENTOFCODE SOLUTION ===
+5

@@ -7,23 +7,46 @@
 ]#
 
 #? replace(sub = "\t", by = "  ")
-import strformat, httpclient, os, strutils, parsexml, streams, osproc, strutils
+import strformat, httpclient, os, strutils, parsexml, streams, osproc
+import marshal, tables
 
-const textEditor = "code" # or subl, as you'd like.
+const textEditor = "subl" # or subl, as you'd like.
 
-# let starting_year = 2015
+const startingYear = 2015
 
 var authString = ""
-var credentialsFilePath = "credentials.txt"
+const credentialsFilePath = "credentials.txt"
+const solveStatusPath = "solveStatus.json"
 
 if fileExists(credentialsFilePath):
     authString = readFile(credentialsFilePath)
+
+type ProblemId = object
+    year: int
+    day: int
+    idx: int
+type SolveStatus = Table[ProblemId, bool]
+
+var solveStatus: SolveStatus
+
+proc saveSolveStatus() =
+    writeFile(solveStatusPath, $$solveStatus)
+
+if not fileExists(solveStatusPath):
+    writeFile(solveStatusPath, $$solveStatus)
+else:
+    var solveData = readFile(solveStatusPath)
+    solveStatus = to[SolveStatus](solveData)
+
 
 if authString == "":
     echo "Credentials file not found or is empty. (credentials.txt)"
     echo "Fill it with your session cookie like this: session=..."
     quit(1)
 
+proc hasFileContent(path: string): bool =
+    if not fileExists(path): return false
+    return getFileSize(path) != 0
 
 proc extractArticles(source: string): seq[string] =
     # Extract string that is between:
@@ -104,7 +127,7 @@ proc getTestSolutionPairs(year: int, day: int, problemIdx: int): seq[(string, st
     for e in cases:
         var r = e.split("=== ADVENTOFCODE SOLUTION ===", 1)
         if r.len == 2:
-            result.add (r[0], r[1].strip())
+            result.add (r[0].strip(), r[1].strip())
 
 
 proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1,
@@ -122,7 +145,7 @@ proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1,
             toWrite.add "=== ADVENTOFCODE CASE ===\n"
             toWrite.add t & "\n"
             toWrite.add "=== ADVENTOFCODE SOLUTION ===\n"
-            toWrite.add "???"
+            toWrite.add "???\n"
         if testSolutions.len != 0:
             filledCases = true
 
@@ -133,12 +156,48 @@ proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1,
         toWrite.add "0"
 
     var filePath = fmt"cases/{year}/{day}/problem/problem{problemIdx}.txt"
+    
     createFileIfNotExists(filePath)
-    writeFile(filePath, toWrite)
+
+    if not hasFileContent(filePath): # Don't overwrite the test cases!
+        writeFile(filePath, toWrite)
 
     if openEditor:
         discard execCmd(fmt"{textEditor} {filePath}") # open text editor
 
+proc querySolution(year: int, day: int, idxToSolve: int, input: string): string =
+    let solutionPath = fmt"solutions/{year}/{day}/solution.nim"
+
+    if not fileExists(solutionPath):
+        return ""
+
+    var process = startProcess(
+            "nim", workingDir = getCurrentDir(),
+            args = ["r", "--hints:off", "--warnings:off", solutionPath],
+            options = {poUsePath})
+
+    process.inputStream().write(input)
+    process.inputStream().close()
+    discard process.waitForExit()
+    var r = process.outputStream().readAll()
+    var errs = process.errorStream().readAll()
+    process.close()
+    let lines = r.split("\n")
+    var programResult = ""
+
+    echo r
+
+    if errs.len != 0:
+        echo "Error were produced during the execution:"
+        echo errs
+
+    let seek = fmt"Part {idxToSolve} result:"
+    for line in lines:
+        if line.startswith(seek):
+            programResult = line[seek.len..<line.len].strip()
+
+
+    return programResult
 
 proc downloadTask(year: int, day: int, isInput: bool = false): string =
     var url = fmt"https://adventofcode.com/{year}/day/{day}"
@@ -161,27 +220,82 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
     echo "Network failure, unable to download: ", url
     quit(1)
 
-proc setupProblem(year: int, day: int, forceUpdate: bool = false) =
-    # Check if we need to download the problem statement:
-    if not fileExists(fmt"cases/{year}/{day}/problem/problem1.txt") or forceUpdate:
-        var task = downloadTask(year, day)
-        let articles = extractArticles(task)
+proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): bool =
+    # POST https://adventofcode.com/2015/day/1/answer
+    # level={problemIdx}&answer={solution}
+    var client = newHttpClient()
+    client.headers = newHttpHeaders({
+        "Cookie": authString,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded"
+    })
+
+    let body = fmt"level={problemIdx}&answer={solution}" & "\n"
+    try:
+        let response = client.request(
+            fmt"https://adventofcode.com/{year}/day/{day}/answer",
+            httpMethod = HttpPost,
+            body = body
+        )
+        var r = response.bodyStream.readAll()
+        
+        # Code to detect if the level was already completed if needed.
+        # if "<p>You don't seem to be solving the right level.":
+        #     discard
+
+        if "<p>That's the right answer!" in r:
+            return true
+        else:
+            return false
+    finally:
+        client.close()
+
+    return false
+
+proc setupProblem(year: int, day: int) =
+    # We try to perform as little downloads as possible from the
+    # website while still updating the files properly when needed.
+
+    var idxToSolve = 1
+
+    var task: string
+    var articles: seq[string]
+
+    if not hasFileContent(fmt"cases/{year}/{day}/problem/problem1.txt"):
+        task = downloadTask(year, day)
+
+        articles = extractArticles(task)
 
         if articles.len == 1:
             # Focus on problem 1
             let problemStatement = articleToMarkdown(articles[0])
             extractTestCases(year, day, problemStatement, 1, true)
-        else:
+    if not hasFileContent(fmt"cases/{year}/{day}/problem/problem2.txt"):
+        if task == "":
+            task = downloadTask(year, day)
+            articles = extractArticles(task)
+        if articles.len == 2:
             # Problem 2 has the same test cases, but different results usually.
             # We could copy the results over from problem 1...
+            solveStatus[ProblemId(year: year, day: day, idx: 1)] = true
+            saveSolveStatus()
+
+            idxToSolve = 2
             let problemStatement = articleToMarkdown(articles[1])
             extractTestCases(year, day, problemStatement, 2, true)
+    else:
+        # the fact that we know the problem statement
+        # for part 2 means that part 1 is solved.
+        idxToSolve = 2
 
     let inputPath = fmt"cases/{year}/{day}/input.txt"
+    var inputData = ""
     if not fileExists(inputPath):
         # never download the input twice as it never changes !!!
-        var inputData = downloadTask(year, day, isInput = true)
+        inputData = downloadTask(year, day, isInput = true)
         writeFile(inputPath, inputData)
+    else:
+        inputData = readFile(inputPath)
 
     let solutionPath = fmt"solutions/{year}/{day}/solution.nim"
     createFileIfNotExists(solutionPath)
@@ -197,46 +311,89 @@ proc setupProblem(year: int, day: int, forceUpdate: bool = false) =
     solutionTemplate.add "proc part2(s: string): string = \n"
     solutionTemplate.add "    discard\n"
     solutionTemplate.add "\n"
-    solutionTemplate.add fmt"run({year},{day}, if part1Ready: part1 else: nil, if part2Ready: part2 else: nil)"
+    solutionTemplate.add fmt"run({year}, {day}, if part1Ready: part1 else: nil, if part2Ready: part2 else: nil)"
 
     if readFile(solutionPath).len == 0:
         writeFile(solutionPath, solutionTemplate)
         discard execCmd(fmt"{textEditor} {solutionPath}")
     else:
         # Run the solution, get the numbers and submit them.
-        echo fmt"Executing solution for {year}/{day}"
-        var process = startProcess(
-                "nim", workingDir = getCurrentDir(),
-                args = ["r", "--hints:off", "--warnings:off", solutionPath],
-                options = {poUsePath})
-
+        
         # Get the test data.
-        var testData = getTestSolutionPairs(year, day, 1)
+        var testData = getTestSolutionPairs(year, day, idxToSolve)
 
         if testData.len == 0:
             echo "No test data found."
-            return
-        var (test, solution) = testData[0]
-        process.inputStream().write(test)
-        process.inputStream().close()
-        discard process.waitForExit()
-        var result = process.outputStream().readAll()
-        process.close()
-        let lines = result.split("\n")
-        var programResult = ""
 
-        const seek = "Part 1 result:"
-        for line in lines:
-            if line.startswith(seek):
-                programResult = line[seek.len..<line.len].strip()
 
-        if programResult == solution:
-            echo "Program is correct !"
-        else:
-            echo "Program is not correct !"
-            echo "Got: ", programResult
-            echo "Expected: ", solution
+        var allCorrect = true
+        echo fmt"Executing solution for {year}/{day}"
+        for i in 0..<testData.len:
+            var (test, solution) = testData[i]
+            var programResult = querySolution(year, day, idxToSolve, test)
+
+            if programResult == "":
+                allCorrect = false
+                echo fmt"Program for solving {year}/{day} (part {idxToSolve}) is not finished!"
+                # subl -n left_file right_file --command "new_pane"
+                discard execCmd(fmt"{textEditor} {solutionPath}")
+                break
+
+            if programResult != solution:
+                allCorrect = false
+                echo "Program is not correct !"
+                echo "Got: ", programResult
+                echo "Expected: ", solution
+                break
+            else:
+                echo fmt"TEST {i} PASSED"
 
         # Waiting for some kind of a response, fossa.
+        if allCorrect:
+            echo "Program might be correct (the test are passing.)"
+            var programResult = querySolution(year, day, idxToSolve, inputData)
+            echo "The program produced on input: ",programResult
+            if programResult.strip().len == 0:
+                echo "There is nothing to submit, check your program."
+                return
 
-setupProblem(2015, 1)
+            echo "Submit it? (y/n): "
+            var line = stdin.readLine()
+            if line == "y":
+                var isok = submitAnswer(year, day, idxToSolve, programResult)
+                if isok:
+                    echo "CORRECT !"
+                    solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
+                    saveSolveStatus()
+                else:
+                    echo "NOT CORRECT :'("
+            else:
+                echo fmt"Not submitting. Go to https://adventofcode.com/{year}/day/{day}/"
+                echo fmt"for manual submit if you want."
+                echo fmt"Was this problem already solved ? (y/n)"
+                line = stdin.readLine()
+                if line == "y":
+                    solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
+                    saveSolveStatus()
+
+# Start by finding the first unsolved problem:
+var solveYear = startingYear
+var solveDay = 1
+
+for pid, status in solveStatus:
+    if pid.year > solveYear:
+        solveYear = pid.year
+    if pid.day >= solveDay:
+        solveDay = pid.day
+
+
+if ProblemId(year: solveYear, day: solveDay, idx: 2) notin solveStatus:
+    setupProblem(solveYear, solveDay)
+else:
+    # Add 1.
+    if solveDay < 25: inc solveDay
+    else:
+        inc solveYear
+        solveDay = 1
+    setupProblem(solveYear, solveDay)
+

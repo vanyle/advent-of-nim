@@ -6,8 +6,6 @@ automates trivial parts of the solving process.
 
 Usage: `./aoc`
 
-
-
 ## Notes
 
 You need to put your session cookie inside credentials.txt

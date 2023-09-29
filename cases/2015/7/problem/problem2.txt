@@ -1,0 +1,17 @@
+=== PROBLEM STATEMENT ====
+--- Part Two ---
+
+Now, take the signal you got on wire ```a```, override wire ```b```to that signal, and reset the other wires (including wire ```a```).  What new signal is ultimately provided to wire ```a```?
+
+Add your test cases below. You can add multiple cases if you need
+=== ADVENTOFCODE CASE ===
+123 -> x
+456 -> y
+x AND y -> d
+x OR y -> e
+x LSHIFT 2 -> a
+y RSHIFT 2 -> b
+NOT x -> h
+NOT y -> i
+=== ADVENTOFCODE SOLUTION ===
+492

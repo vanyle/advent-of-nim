@@ -3,6 +3,10 @@
 # a sat solver
 # and other goodies.
 
+# Good functional packages
+import strutils, sequtils, strscans, tables, sets
+export strutils, sequtils, strscans, tables, sets
+
 proc run*(year: int, day: int, part1: proc(s: string): string, part2: proc(
         s: string): string) =
     var everything = stdin.readAll()
