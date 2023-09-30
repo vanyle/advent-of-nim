@@ -21,6 +21,7 @@ const solveStatusPath = "solveStatus.json"
 if fileExists(credentialsFilePath):
     authString = readFile(credentialsFilePath)
 
+
 type ProblemId = object
     year: int
     day: int
@@ -178,14 +179,17 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
 
     process.inputStream().write(input)
     process.inputStream().close()
+    var lines: seq[string]
+    while not process.outputStream().atEnd():
+        var line = process.outputStream().readLine()
+        echo line
+        lines.add line
+
     discard process.waitForExit()
-    var r = process.outputStream().readAll()
+
     var errs = process.errorStream().readAll()
     process.close()
-    let lines = r.split("\n")
     var programResult = ""
-
-    echo r
 
     if errs.len != 0:
         echo "Error were produced during the execution:"
