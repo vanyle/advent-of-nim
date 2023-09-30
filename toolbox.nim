@@ -8,8 +8,9 @@ import strutils, sequtils, strscans, tables, sets
 export strutils, sequtils, strscans, tables, sets
 
 # Helper functions that are commonly useful.
-import itertools, astar
-export itertools, astar
+import itertools, astar, memo
+export itertools, astar, memo
+
 
 import times
 
