@@ -167,9 +167,157 @@ proc part1(s: string): string =
 
 
 
+# Part2 is like part1 but
+# the player loses 1 hp every player turn
+proc simulateGame2(
+    mp: int,
+    hpP: int,
+    effects: array[3, int],
+    hpB: int,
+    turn: bool
+): (int, seq[Effect]) {.memoized.} =
+    # Player loses => max mana spent.
+    if hpP <= 0: return (99999999, @[])
+    if hpB <= 0:
+        return (0, @[])
+
+    # Simulate all possible games where the player wins.
+    # Return the minimum amount of mana that can be used.
+
+    # Apply the effects
+    var eff = effects # copy the effects
+    var mpNew = mp
+    var hpBNew = hpB
+    var hpPNew = hpP
+    var armor = 0
+
+
+    if turn == TurnPlayer: # hard mode
+        dec hpPNew
+        if hpPNew <= 0:
+            return (99999999, @[])
+
+
+    if eff[Shield.int] > 0:
+        armor = 7
+        dec eff[Shield.int]
+    if eff[Poison.int] > 0:
+        hpBNew -= 3
+        dec eff[Poison.int]
+    if eff[Recharge.int] > 0:
+        mpNew += 101
+        dec eff[Recharge.int]
+
+    if hpB <= 0:
+        return (0, @[])
+
+    # Make the player play.
+    if turn == TurnPlayer:
+        if mpNew < 53: return (99999999, @[]) 
+        
+        # MagicMissile
+        var (res, at1) = simulateGame2(
+            mpNew - 53,
+            hpPNew,
+            eff,
+            hpBNew - 4,
+            TurnBoss
+        )
+        res += 53
+        at1.add MagicMissile
+
+        # Drain
+        if mpNew >= 73:
+            var (m, at2) = simulateGame2(
+                mpNew - 73,
+                hpPNew + 2,
+                eff,
+                hpBNew - 2,
+                TurnBoss
+            )
+            m += 73
+            if m < res:
+                at2.add Drain
+                at1 = at2
+            res = min(m, res)
+
+        if mpNew >= 113 and eff[Shield.int] == 0:
+            var eff2 = eff
+            eff2[Shield.int] = 6
+            var (m, at2) = simulateGame2(
+                mpNew - 113,
+                hpPNew,
+                eff2,
+                hpBNew,
+                TurnBoss
+            )
+            m += 113
+            if m < res:
+                at2.add Shield
+                at1 = at2
+            res = min(m, res)
+
+        if mpNew >= 173 and eff[Poison.int] == 0:
+            var eff2 = eff
+            eff2[Poison.int] = 6
+            var (m, at2) = simulateGame2(
+                mpNew - 173,
+                hpPNew,
+                eff2,
+                hpBNew,
+                TurnBoss
+            )
+            m += 173
+            if m < res:
+                at2.add Poison
+                at1 = at2
+            res = min(m, res)
+
+        if mpNew >= 229 and eff[Recharge.int] == 0:
+            var eff2 = eff
+            eff2[Recharge.int] = 5
+            var (m, at2) = simulateGame2(
+                mpNew - 229,
+                hpPNew,
+                eff2,
+                hpBNew,
+                TurnBoss
+            )
+            m += 229
+            if m < res:
+                at2.add Recharge
+                at1 = at2
+            res = min(m, res)
+
+        return (res, at1)
+
+
+    # Make the boss play
+    if turn == TurnBoss:
+        var (res, at) = simulateGame2(
+            mpNew,
+            hpPNew - max(1, dmgB - armor),
+            eff,
+            hpBNew,
+            TurnPlayer
+        )
+
+        return (res,at)
+
 proc part2(s: string): string = 
     var r = parseInput(s)
+    var hpB = 67 # r[0] ???
+    dmgB = r[1]
 
-    return ""
+    let (res, actions) = simulateGame2(
+        500,
+        50,
+        [0,0,0],
+        hpB,
+        TurnPlayer
+    )
+    echo actions
+
+    return $res
 
 run(2015, 22, part1, part2)
