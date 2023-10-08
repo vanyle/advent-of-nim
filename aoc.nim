@@ -84,7 +84,9 @@ proc articleToMarkdown(source: string): string =
             result.add(x.charData)
         of xmlElementStart:
             if x.elementName == "code":
-                result.add "```"
+                result.add "`"
+            if x.elementName == "pre":
+                result.add "``"
             if x.elementName == "em":
                 result.add "*"
             if x.elementName == "h2":
@@ -95,7 +97,9 @@ proc articleToMarkdown(source: string): string =
                 result.add "\n"
         of xmlElementEnd:
             if x.elementName == "code":
-                result.add "```"
+                result.add "`"
+            if x.elementName == "pre":
+                result.add "``\n"
             if x.elementName == "em":
                 result.add "* "
             if x.elementName in ["p", "li", "ul", "h1", "h2"]:
@@ -174,16 +178,20 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
 
     var process = startProcess(
             "nim", workingDir = getCurrentDir(),
-            args = ["r","-d:release", "--hints:off", "--warnings:off", solutionPath],
+            # "-d:release"
+            args = ["r","--hints:off", "--warnings:off", solutionPath],
             options = {poUsePath})
 
     process.inputStream().write(input)
     process.inputStream().close()
     var lines: seq[string]
-    while not process.outputStream().atEnd():
-        var line = process.outputStream().readLine()
-        echo line
-        lines.add line
+    try:
+        while not process.outputStream().atEnd():
+            var line = process.outputStream().readLine()
+            echo line
+            lines.add line
+    except:
+        discard # the pipe has been ended.
 
     discard process.waitForExit()
 
@@ -224,7 +232,7 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
     echo "Network failure, unable to download: ", url
     quit(1)
 
-proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): bool =
+proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): (bool, string) =
     # POST https://adventofcode.com/2015/day/1/answer
     # level={problemIdx}&answer={solution}
     var client = newHttpClient()
@@ -235,26 +243,32 @@ proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): bool 
     })
 
     let body = fmt"level={problemIdx}&answer={solution}" & "\n"
+    var r = ""
     try:
         let response = client.request(
             fmt"https://adventofcode.com/{year}/day/{day}/answer",
             httpMethod = HttpPost,
             body = body
         )
-        var r = response.bodyStream.readAll()
+        r = response.bodyStream.readAll()
         
         # Code to detect if the level was already completed if needed.
         # if "<p>You don't seem to be solving the right level.":
         #     discard
-
-        if "<p>That's the right answer!" in r:
-            return true
-        else:
-            return false
+    except:
+        discard
     finally:
         client.close()
 
-    return false
+    if "<p>That's the right answer!" in r:
+        return (true, "")
+    else:
+        if "is too low" in r:
+            return (false, "low")
+        elif "is too high" in r:
+            return (false, "high")
+
+    return (false, "???")
 
 proc setupProblem(year: int, day: int) =
     # We try to perform as little downloads as possible from the
@@ -307,15 +321,20 @@ proc setupProblem(year: int, day: int) =
     var solutionTemplate = ""
     solutionTemplate.add "import ../../../toolbox\n"
     solutionTemplate.add "\n"
-    solutionTemplate.add "var part1Ready* = false\n"
+    solutionTemplate.add "proc parseInput(s: string): string = \n"
+    solutionTemplate.add "    return s"
+    solutionTemplate.add "\n"
+    solutionTemplate.add "\n"    
     solutionTemplate.add "proc part1(s: string): string = \n"
-    solutionTemplate.add "    discard\n"
+    solutionTemplate.add "    var r = parseInput(s)\n"
     solutionTemplate.add "\n"
-    solutionTemplate.add "var part2Ready* = false\n"
+    solutionTemplate.add "\n"
+    solutionTemplate.add "\n"
     solutionTemplate.add "proc part2(s: string): string = \n"
-    solutionTemplate.add "    discard\n"
+    solutionTemplate.add "    var r = parseInput(s)\n"
     solutionTemplate.add "\n"
-    solutionTemplate.add fmt"run({year}, {day}, if part1Ready: part1 else: nil, if part2Ready: part2 else: nil)"
+    solutionTemplate.add "\n"
+    solutionTemplate.add fmt"run({year}, {day}, part1, part2)"
 
     if readFile(solutionPath).len == 0:
         writeFile(solutionPath, solutionTemplate)
@@ -364,13 +383,14 @@ proc setupProblem(year: int, day: int) =
             echo "Submit it? (y/n): "
             var line = stdin.readLine()
             if line == "y":
-                var isok = submitAnswer(year, day, idxToSolve, programResult)
+                var (isok, reason) = submitAnswer(year, day, idxToSolve, programResult)
                 if isok:
                     echo "CORRECT !"
                     solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
                     saveSolveStatus()
                 else:
                     echo "NOT CORRECT :'("
+                    echo "Your answer is too ",reason
             else:
                 echo fmt"Not submitting. Go to https://adventofcode.com/{year}/day/{day}/"
                 echo fmt"for manual submit if you want."

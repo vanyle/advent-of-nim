@@ -4,15 +4,15 @@
 # and other goodies.
 
 # Good functional packages
-import strutils, sequtils, strscans, tables, sets, sugar
-export strutils, sequtils, strscans, tables, sets, sugar
+import strutils, sequtils, strscans, tables, sets, sugar, algorithm
+export strutils, sequtils, strscans, tables, sets, sugar, algorithm
 
 # Helper functions that are commonly useful.
 import itertools, astar, memo
 export itertools, astar, memo
 
 
-import times
+import times, re
 
 # Inspired by:
 # https://github.com/mcpower/adventofcode/blob/15ae109bc882ca688665f86e4ca2ba1770495bb4/utils.py
@@ -27,7 +27,7 @@ proc isPrime*(p: int): bool =
 
 proc ints*(s: string): seq[int] =
     ## return all integers inside a string
-    discard
+    return re.findAll(s, re"-?\d+").map(parseInt)
 
 # ------------ STRING -----------------
 
@@ -39,30 +39,104 @@ iterator findAll*(input: string, pattern: seq[string]): seq[string] =
     ## yield ["this is hello ","hello"," world"]
     discard
 
+
+# We can define editDistance recursively using a cache.
+# https://en.wikipedia.org/wiki/Damerau%E2%80%93Levenshtein_distance
 proc editDistance*[T](a: seq[T], b: seq[T]): int =
-    discard
+    var rTable: Table[(int, int), int]
+
+    proc edh[T](a: seq[T], b: seq[T], i,j: int): int =
+        # Edit distance helper.
+        if (i,j) in rTable:
+            return rTable[(i,j)]
+        if i == 0 and j == 0: return 0
+        if i == 0: return j
+        if j == 0: return i
+
+        if a[i] == b[i]:
+            var r = edh(a,b,i-1,j-1)
+            rTable[(i,j)] = r
+            return r 
+
+        let e1 = edh(a,b,i-1,j)
+        let e2 = edh(a,b,i,j-1)
+        let e3 = edh(a,b,i-1,j-1)
+        var r = 1 + min(e1, min(e2, e3))
+        rTable[(i,j)] = r
+        return r
+
+    return edh(a,b, a.len - 1, b.len - 1)
 
 # ------------ GRIDS ------------------
 
 proc getArr*[T](a: seq[seq[T]], x,y: int, default: T): T =
-    if x < 0 or y < 0 or y > a.len or x > a[y].len:
+    if x < 0 or y < 0 or y >= a.len or x >= a[y].len:
         return default
     return a[y][x]
 
-proc makeGrid[T](x:int,y:int,filler: T): seq[seq[T]] =
-    discard
+proc makeGrid*[T](x:int,y:int,filler: T): seq[seq[T]] =
+    result = newSeq[T](y)
+    for i in 0..<y:
+        result[i] = newSeq[T](x)
+
 
 iterator neighFour*[T](a: seq[seq[T]], x,y: int): T =
-    discard
+    if x+1 < a[y+1].len:
+        yield a[y][x+1]
+    if x-1 >= 0:
+        yield a[y][x-1]
+    if y-1 >= 0:
+        yield a[y-1][x]
+    if y+1 < a.len:
+        yield a[y+1][x]
+
 iterator neighEight*[T](a: seq[seq[T]], x,y: int): T =
-    discard
+    if x+1 < a[y+1].len:
+        yield a[y][x+1]
+    if x-1 >= 0:
+        yield a[y][x-1]
+    if y-1 >= 0:
+        yield a[y-1][x]
+    if y+1 < a.len:
+        yield a[y+1][x]
+    if y+1 < a.len and x+1 < a[y+1].len:
+        yield a[y+1][x+1]
+    if y+1 < a.len and x-1 >= 0:
+        yield a[y+1][x-1]
+    if y-1 >= 0 and x+1 < a[y-1].len:
+        yield a[y-1][x+1]
+    if y-1 >= 0 and x-1 >= 0:
+        yield a[y-1][x-1]
+
 
 # ------------ ITERTOOLS SEQUEL -------------
 
-iterator addUpTo(elementCount: int, addsUpTo: int): seq[int] =
-    ## yields all sequences of ints of length elementCount
+iterator addUpTo*(elementCount: int, addsUpTo: int): seq[int] =
+    ## yields all sequences of positive integers of length elementCount
     ## where the sum is addsUpTo.
-    discard
+    ## Example:
+    ## addsUpTo = 5, elementCount = 3
+    ## [5,0,0], [3,1,1], [2,2,1], [2,1,2], etc...
+
+
+    var bin = newSeq[bool](elementCount + addsUpTo - 1)
+    for i in 0..<(elementCount - 1):
+        bin[i] = true
+
+    while true:
+        # place addsUpTo-1 elements to true.
+        var n = newSeq[int](elementCount)
+        var j = 0
+        for i in 0..<bin.len:
+            if bin[i]: # There are elementCount - 1 such elements
+                inc j
+            else:
+                inc n[j]
+        yield n
+
+        if not bin.prevPermutation():
+            break
+
 
 
 

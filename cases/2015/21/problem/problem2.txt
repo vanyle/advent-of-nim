@@ -1,0 +1,13 @@
+=== PROBLEM STATEMENT ====
+--- Part Two ---
+
+Turns out the shopkeeper is working with the boss, and can persuade you to buy whatever items he wants. The other rules still apply, and he still only has one of each item.
+What is the *most* amount of gold you can spend and still *lose* the fight?
+
+Add your test cases below. You can add multiple cases if you need
+=== ADVENTOFCODE CASE ===
+Hit Points: 109
+Damage: 8
+Armor: 2
+=== ADVENTOFCODE SOLUTION ===
+188
