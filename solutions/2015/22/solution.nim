@@ -153,7 +153,7 @@ proc part1(s: string): string =
     var hpB = r[0]
     dmgB = r[1]
 
-    let res, actions = simulateGame(
+    let (res, actions) = simulateGame(
         500,
         50,
         [0,0,0],

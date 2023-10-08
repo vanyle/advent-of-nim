@@ -144,18 +144,37 @@ proc run*(year: int, day: int, part1: proc(s: string): string, part2: proc(
         s: string): string) =
     var everything = stdin.readAll()
 
-    if part1 != nil:
+    block:
         echo "Running part 1: "
         let time = cpuTime()
         var p1_result = part1(everything)
         let t = cpuTime() - time
-        echo "Part 1 result: ", p1_result
-        echo "Done in: ",t,"s"
+        if p1_result.len > 0:
+            echo "Part 1 result: ", p1_result
+            echo "Done in: ",t,"s"
+            try:
+                discard parseInt(p1_result)
+            except:
+                echo ""
+                echo "> WARNING: result of part1 is not an integer!"
+                echo ""
 
-    if part2 != nil:
+        else:
+            return # part 1 not finished, don't run part 2
+
+    block:
         echo "Running part 2: "
         let time = cpuTime()
         var p2_result = part2(everything)
         let t = cpuTime() - time
-        echo "Part 2 result: ", p2_result
-        echo "Done in: ",t,"s"
+
+        if p2_result.len > 0:
+            echo "Part 2 result: ", p2_result
+            echo "Done in: ",t,"s"
+            
+            try:
+                discard parseInt(p2_result)
+            except:
+                echo ""
+                echo "> WARNING: result of part2 is not an integer!"
+                echo ""

@@ -375,7 +375,6 @@ proc setupProblem(year: int, day: int) =
         if allCorrect:
             echo "Program might be correct (the test are passing.)"
             var programResult = querySolution(year, day, idxToSolve, inputData)
-            echo "The program produced on input: ",programResult
             if programResult.strip().len == 0:
                 echo "There is nothing to submit, check your program."
                 return
