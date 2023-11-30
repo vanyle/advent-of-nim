@@ -29,6 +29,11 @@ proc ints*(s: string): seq[int] =
     ## return all integers inside a string
     return re.findAll(s, re"-?\d+").map(parseInt)
 
+proc reverseTable* [T](l: seq[T]): Table[T, int] =
+    ## Returns the table containing indices to elements of a list
+    for i in 0..<l.len:
+        result[l[i]] = i
+
 # ------------ STRING -----------------
 
 iterator findAll*(input: string, pattern: seq[string]): seq[string] =

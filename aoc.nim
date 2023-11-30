@@ -12,7 +12,7 @@ import marshal, tables
 
 const textEditor = "subl" # or subl, as you'd like.
 
-const startingYear = 2015
+const startingYear = 2023
 
 var authString = ""
 const credentialsFilePath = "credentials.txt"
@@ -38,7 +38,6 @@ if not fileExists(solveStatusPath):
 else:
     var solveData = readFile(solveStatusPath)
     solveStatus = to[SolveStatus](solveData)
-
 
 if authString == "":
     echo "Credentials file not found or is empty. (credentials.txt)"
@@ -226,6 +225,9 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
     try:
         let response = client.getContent(url)
         return response
+    except Exception as err:
+        echo "Error: ",err.msg
+        echo "Is your cookie valid?"
     finally:
         client.close()
 
@@ -404,11 +406,11 @@ var solveYear = startingYear
 var solveDay = 1
 
 for pid, status in solveStatus:
+
     if pid.year > solveYear:
         solveYear = pid.year
-    if pid.day >= solveDay:
+    if pid.year >= solveYear and pid.day >= solveDay:
         solveDay = pid.day
-
 
 if ProblemId(year: solveYear, day: solveDay, idx: 2) notin solveStatus:
     setupProblem(solveYear, solveDay)
