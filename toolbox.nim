@@ -95,23 +95,23 @@ iterator neighFour*[T](a: seq[seq[T]], x,y: int): T =
     if y+1 < a.len:
         yield a[y+1][x]
 
-iterator neighEight*[T](a: seq[seq[T]], x,y: int): T =
+iterator neighEight*[T](a: seq[seq[T]], y,x: int): (T, (int,int)) =
     if x+1 < a[y+1].len:
-        yield a[y][x+1]
+        yield (a[y][x+1], (y,x+1))
     if x-1 >= 0:
-        yield a[y][x-1]
+        yield (a[y][x-1], (y,x-1))
     if y-1 >= 0:
-        yield a[y-1][x]
+        yield (a[y-1][x], (y-1,x))
     if y+1 < a.len:
-        yield a[y+1][x]
+        yield (a[y+1][x], (y+1, x))
     if y+1 < a.len and x+1 < a[y+1].len:
-        yield a[y+1][x+1]
+        yield (a[y+1][x+1], (y+1,x+1))
     if y+1 < a.len and x-1 >= 0:
-        yield a[y+1][x-1]
+        yield (a[y+1][x-1], (y+1,x-1))
     if y-1 >= 0 and x+1 < a[y-1].len:
-        yield a[y-1][x+1]
+        yield (a[y-1][x+1], (y-1,x+1))
     if y-1 >= 0 and x-1 >= 0:
-        yield a[y-1][x-1]
+        yield (a[y-1][x-1], (y-1, x-1))
 
 
 # ------------ ITERTOOLS SEQUEL -------------
