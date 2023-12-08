@@ -1,6 +1,5 @@
 import ../../../toolbox
 
-# win, you have
 proc parseInput(s: string): seq[(seq[int], seq[int])] = 
     var lines = s.strip.split("\n")
     for l in lines:

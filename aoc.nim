@@ -404,15 +404,20 @@ proc setupProblem(year: int, day: int) =
 # Start by finding the first unsolved problem:
 var solveYear = startingYear
 var solveDay = 1
+var rerun = false
 
-for pid, status in solveStatus:
+if paramCount() == 2:
+    solveYear = paramStr(1).parseInt
+    solveDay = paramStr(2).parseInt
+    rerun = true
+else:
+    for pid, status in solveStatus:
+        if pid.year > solveYear:
+            solveYear = pid.year
+        if pid.year >= solveYear and pid.day >= solveDay:
+            solveDay = pid.day
 
-    if pid.year > solveYear:
-        solveYear = pid.year
-    if pid.year >= solveYear and pid.day >= solveDay:
-        solveDay = pid.day
-
-if ProblemId(year: solveYear, day: solveDay, idx: 2) notin solveStatus:
+if rerun or ProblemId(year: solveYear, day: solveDay, idx: 2) notin solveStatus:
     setupProblem(solveYear, solveDay)
 else:
     # Add 1.
