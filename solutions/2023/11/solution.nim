@@ -48,8 +48,6 @@ proc part1(s: string): string =
             var p1 = galaxyPos[i]
             var p2 = galaxyPos[j]
             var d = abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
-            if i == 6 and j == 0:
-                echo p1, " ; ",p2, " => ",d
             s += d
 
     return $s
@@ -67,25 +65,20 @@ proc part2(s: string): string =
 
 
     var emptyCol = @[0]
-    block:
-        for i in 0..<r[0].len:
-            if r.isColumnEmpty(i):
-                emptyCol.add(emptyCol[emptyCol.len-1] + 1)
-            else:
-                emptyCol.add(emptyCol[emptyCol.len-1])
+    for i in 0..<r[0].len:
+        if r.isColumnEmpty(i):
+            emptyCol.add(emptyCol[emptyCol.len-1] + 1)
+        else:
+            emptyCol.add(emptyCol[emptyCol.len-1])
 
     var emptyLine = @[0]
-    block:
-        for i in 0..<r.len:
-            if "#" notin r[i]:
-                emptyLine.add(emptyLine[emptyLine.len-1] + 1)
-            else:
-                emptyLine.add(emptyLine[emptyLine.len-1])
+    for i in 0..<r.len:
+        if "#" notin r[i]:
+            emptyLine.add(emptyLine[emptyLine.len-1] + 1)
+        else:
+            emptyLine.add(emptyLine[emptyLine.len-1])
 
     const offsetAmount = 1000000 - 1 # lensing
-
-    echo emptyCol
-    echo emptyLine
 
     var s = 0
     for i in 0..<galaxyPos.len:

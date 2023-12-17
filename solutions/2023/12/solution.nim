@@ -1,56 +1,76 @@
 import ../../../toolbox
 
-func parseInput(s: string): seq[(string, seq[int])] = 
+func parseInput(s: string): seq[(string, seq[uint8])] = 
     let lines = s.strip.splitLines
     for i in lines:
         var s = i.split(" ",2)
 
         result.add((
             s[0],
-            s[1].split(",").map(parseInt)
+            s[1].split(",").map(x => x.parseInt().uint8)
         ))
 
 
-func possibilities(pattern: string, hints: seq[int], counterSeq: int): int {.memoized.} =
+var hints: seq[uint8]
+var memoTable: Table[(string, int16, uint8, uint8), int]
+proc possibilities(pattern: string, pslice: int16, hintSlice: uint8, counterSeq: uint8): int =
     # Recursion, my boy!!
+    if (pattern, pslice, hintSlice, counterSeq) in memoTable:
+        return memoTable[(pattern, pslice, hintSlice, counterSeq)]
 
     var brokenCounter = counterSeq
 
-    for j in countdown(pattern.len-1, 0):
+    for j in countdown(pslice, 0):
         if pattern[j] == '#':
             inc brokenCounter
         elif pattern[j] == '.':
             if brokenCounter == 0: continue
-            if hints.len == 0: return 0
-            if hints[^1] == brokenCounter: # ok!
-                return possibilities(pattern[0..<j], hints[0..<hints.len-1], 0)
+            if hintSlice == 0: return 0
+            if hints[hintSlice-1] == brokenCounter: # ok!
+                var r = possibilities(pattern, j-1, hintSlice - 1, 0)
+                memoTable[(pattern, pslice, hintSlice, counterSeq)] = r
+                return r
             else:
+                memoTable[(pattern, pslice, hintSlice, counterSeq)] = 0
                 return 0 # impossible!
         elif pattern[j] == '?':
             var p1 = pattern[0..<j] & '.'
-            var p2 = pattern[0..<j] & '#'
-            return possibilities(p1, hints, brokenCounter) + possibilities(p2, hints, brokenCounter)
-
+            var c1 = possibilities(p1, j, hintSlice, brokenCounter)
+            
+            p1[j] = '#'
+            var c2 = possibilities(p1, j, hintSlice, brokenCounter)
+            
+            memoTable[(pattern, pslice, hintSlice, counterSeq)] = c1 + c2
+            return c1 + c2
 
     # make sure the counter and the hint match here.
-    if hints.len > 1: return 0
-    if hints.len == 1 and brokenCounter == hints[0]:
+    if hintSlice > 1:
+        memoTable[(pattern, pslice, hintSlice, counterSeq)] = 0
+        return 0
+    if hintSlice == 1 and brokenCounter == hints[0]:
+        memoTable[(pattern, pslice, hintSlice, counterSeq)] = 1
         return 1
-    if hints.len == 0 and brokenCounter == 0:
+    if hintSlice == 0 and brokenCounter == 0:
+        memoTable[(pattern, pslice, hintSlice, counterSeq)] = 1
         return 1
+
+    memoTable[(pattern, pslice, hintSlice, counterSeq)] = 0
     return 0
+
 
 proc part1(s: string): string = 
     var r = parseInput(s)
     var res = 0
     for i in r:
-        var p = possibilities(i[0], i[1], 0)
+        hints = i[1]
+        memoTable.clear()
+        var p = possibilities(i[0], (i[0].len-1).int16, i[1].len.uint8, 0)
         res += p
     return $res
 
-proc duplicate(pattern: string, hints: seq[int]): (string, seq[int]) =
+proc duplicate(pattern: string, hints: seq[uint8]): (string, seq[uint8]) =
     var patfive = ""
-    var hintfive: seq[int] = @[]
+    var hintfive: seq[uint8] = @[]
     for i in 0..<5:
         patfive &= pattern
         if i != 4:
@@ -66,8 +86,9 @@ proc part2(s: string): string =
 
     for i in r:
         var j = duplicate(i[0], i[1])
-        var p = possibilities(j[0], j[1], 0)
-        echo p
+        hints = j[1]
+        memoTable.clear()
+        var p = possibilities(j[0], (j[0].len-1).int16, j[1].len.uint8, 0)
         res += p
 
     return $res

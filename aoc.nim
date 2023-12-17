@@ -8,7 +8,7 @@
 
 #? replace(sub = "\t", by = "  ")
 import strformat, httpclient, os, strutils, parsexml, streams, osproc
-import marshal, tables
+import marshal, tables, parseopt
 
 const textEditor = "subl" # or subl, as you'd like.
 
@@ -17,6 +17,9 @@ const startingYear = 2023
 var authString = ""
 const credentialsFilePath = "credentials.txt"
 const solveStatusPath = "solveStatus.json"
+
+var isSpeed = false
+var noEdit = false
 
 if fileExists(credentialsFilePath):
     authString = readFile(credentialsFilePath)
@@ -175,10 +178,22 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
     if not fileExists(solutionPath):
         return ""
 
+    var args = @[
+        "r",
+        "--hints:off",
+        "--warnings:off",
+    ]
+    if isSpeed:
+        args.add([
+            "-d:danger",
+            "--opt:speed",
+            "--passC:-flto"
+        ])
+    args.add solutionPath
+
     var process = startProcess(
             "nim", workingDir = getCurrentDir(),
-            # "-d:release"
-            args = ["r","--hints:off", "--warnings:off", solutionPath],
+            args = args,
             options = {poUsePath})
 
     process.inputStream().write(input)
@@ -289,7 +304,7 @@ proc setupProblem(year: int, day: int) =
         if articles.len == 1:
             # Focus on problem 1
             let problemStatement = articleToMarkdown(articles[0])
-            extractTestCases(year, day, problemStatement, 1, true)
+            extractTestCases(year, day, problemStatement, 1, not noEdit)
     if not hasFileContent(fmt"cases/{year}/{day}/problem/problem2.txt"):
         if task == "":
             task = downloadTask(year, day)
@@ -302,7 +317,7 @@ proc setupProblem(year: int, day: int) =
 
             idxToSolve = 2
             let problemStatement = articleToMarkdown(articles[1])
-            extractTestCases(year, day, problemStatement, 2, true)
+            extractTestCases(year, day, problemStatement, 2, not noEdit)
     else:
         # the fact that we know the problem statement
         # for part 2 means that part 1 is solved.
@@ -324,7 +339,7 @@ proc setupProblem(year: int, day: int) =
     solutionTemplate.add "import ../../../toolbox\n"
     solutionTemplate.add "\n"
     solutionTemplate.add "proc parseInput(s: string): seq[string] = \n"
-    solutionTemplate.add "    return s.strip.split(\"\n\")"
+    solutionTemplate.add "    return s.strip.split(\"\\n\")"
     solutionTemplate.add "\n"
     solutionTemplate.add "\n"    
     solutionTemplate.add "proc part1(s: string): string = \n"
@@ -406,11 +421,29 @@ var solveYear = startingYear
 var solveDay = 1
 var rerun = false
 
-if paramCount() == 2:
-    solveYear = paramStr(1).parseInt
-    solveDay = paramStr(2).parseInt
-    rerun = true
-else:
+var p = initOptParser(quoteShellCommand(commandLineParams()))
+
+while true:
+    p.next()
+    case p.kind:
+    of cmdEnd: break
+    of cmdArgument:
+        discard
+    of cmdLongOption, cmdShortOption:
+        var k = p.key
+        if k == "d" or k == "day":
+            solveDay = parseInt(p.val)
+            rerun = true
+        elif k == "y" or k == "year":
+            solveYear = parseInt(p.val)
+            rerun = true
+        elif k == "noedit":
+            noEdit = true
+        elif k == "speed":
+            isSpeed = true
+
+
+if not rerun: # auto detect day
     for pid, status in solveStatus:
         if pid.year > solveYear:
             solveYear = pid.year

@@ -2,5 +2,10 @@
 	// when opening the editor, this is run the
 	// {editor} {filename} command. 
 	"editor": "subl",
-	"runOptions":"-d:release"
+	"runOptions":"-d:release",
+	"open":{
+		"solution": true,
+		"input": true,
+		"problem": true
+	}
 }

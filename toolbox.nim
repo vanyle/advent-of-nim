@@ -12,7 +12,7 @@ import itertools, astar, memo
 export itertools, astar, memo
 
 
-import times, re
+import re, std/monotimes, times
 
 # Inspired by:
 # https://github.com/mcpower/adventofcode/blob/15ae109bc882ca688665f86e4ca2ba1770495bb4/utils.py
@@ -151,12 +151,12 @@ proc run*(year: int, day: int, part1: proc(s: string): string, part2: proc(
 
     block:
         echo "Running part 1: "
-        let time = cpuTime()
+        let time = getMonoTime()
         var p1_result = part1(everything)
-        let t = cpuTime() - time
+        let t = getMonoTime() - time
         if p1_result.len > 0:
             echo "Part 1 result: ", p1_result
-            echo "Done in: ",t,"s"
+            echo "Done in: ",(t.inMicroseconds)/1000,"ms"
             try:
                 discard parseInt(p1_result)
             except:
@@ -169,13 +169,13 @@ proc run*(year: int, day: int, part1: proc(s: string): string, part2: proc(
 
     block:
         echo "Running part 2: "
-        let time = cpuTime()
+        let time = getMonoTime()
         var p2_result = part2(everything)
-        let t = cpuTime() - time
+        let t = getMonoTime() - time # nanoseconds
 
         if p2_result.len > 0:
             echo "Part 2 result: ", p2_result
-            echo "Done in: ",t,"s"
+            echo "Done in: ",(t.inMicroseconds/1000),"ms"
             
             try:
                 discard parseInt(p2_result)
