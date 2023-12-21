@@ -20,6 +20,7 @@ const solveStatusPath = "solveStatus.json"
 
 var isSpeed = false
 var noEdit = false
+var rerun = false
 
 if fileExists(credentialsFilePath):
     authString = readFile(credentialsFilePath)
@@ -187,7 +188,10 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
         args.add([
             "-d:danger",
             "--opt:speed",
-            "--passC:-flto"
+            "--passL:-flto",
+            "--passC=-flto", # fast linking and no warnings!
+            "--passC:-w",
+            "--passL:-w"
         ])
     args.add solutionPath
 
@@ -396,6 +400,9 @@ proc setupProblem(year: int, day: int) =
                 echo "There is nothing to submit, check your program."
                 return
 
+            if rerun:
+                return
+
             echo "Submit it? (y/n): "
             var line = stdin.readLine()
             if line == "y":
@@ -419,7 +426,6 @@ proc setupProblem(year: int, day: int) =
 # Start by finding the first unsolved problem:
 var solveYear = startingYear
 var solveDay = 1
-var rerun = false
 
 var p = initOptParser(quoteShellCommand(commandLineParams()))
 
