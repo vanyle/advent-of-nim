@@ -33,7 +33,7 @@ Add your test cases below. You can add multiple cases if you need
 === ADVENTOFCODE CASE ===
 LR
 
-11A = (11B, XXX)
+AAA = (11B, XXX)
 11B = (XXX, 11Z)
 11Z = (11B, XXX)
 22A = (22B, XXX)

@@ -1,35 +1,41 @@
 import ../../../toolbox
 
-type Graph = Table[string, (string, string)]
-
+type Graph = Table[array[3, char], (array[3, char], array[3, char])]
 import math
 
-proc parseInput(s: string): (string, Graph) = 
-    var parts = s.strip.split("\n\n")
-    let moveInstructions = parts[0]
-    var graph: Graph
-    let lines = parts[1].split("\n")
-
-    for i in lines:
-        var start = i[0..2]
-        var left = i[7..9]
-        var right = i[12..14]
-        graph[start] = (left, right)
-
-    return (moveInstructions, graph)
-
 proc part1(s: string): string = 
-    var (steps, graph) = parseInput(s)
+    var stepsLen = 0
+    while s[stepsLen] != '\n':
+        inc stepsLen
+
+    var graph: Graph
+
+    for i in s.toOpenArray(stepsLen+2, s.len-1).fastSplit('\n'):
+        var start: array[3, char]
+        var left: array[3, char]
+        var right: array[3, char]
+        
+        var idx = 0
+        for j in 0..2:
+            start[j] = i[j]
+        for j in 7..9:
+            left[idx] = i[j]
+            inc idx
+        idx = 0
+        for j in 12..14:
+            right[idx] = i[j]
+            inc idx
+
+        graph[start] = (left, right)
     
-    var pos = "AAA"
+    var pos = ['A','A','A']
     var posInStep = 0
     var step = 0
 
-    if "AAA" notin graph or "ZZZ" notin graph:
-        return "0"
+    if ['A', 'A', 'A'] notin graph: return "0"
 
-    while pos != "ZZZ":
-        let d = steps[posInStep]
+    while pos != ['Z','Z','Z']:
+        let d = s[posInStep]
         if d == 'R':
             pos = graph[pos][1]
         else:
@@ -37,16 +43,38 @@ proc part1(s: string): string =
 
         inc step
         inc posInStep
-        if posInStep >= steps.len:
+        if posInStep >= stepsLen:
             posInStep = 0
 
     return $step
 
 
 proc part2(s: string): string = 
-    var (steps, graph) = parseInput(s)
+    var stepsLen = 0
+    while s[stepsLen] != '\n':
+        inc stepsLen
 
-    var startingPoints: seq[string] = @[]
+    var graph: Graph
+
+    for i in s.toOpenArray(stepsLen+2, s.len-1).fastSplit('\n'):
+        var start: array[3, char]
+        var left: array[3, char]
+        var right: array[3, char]
+        
+        var idx = 0
+        for j in 0..2:
+            start[j] = i[j]
+        for j in 7..9:
+            left[idx] = i[j]
+            inc idx
+        idx = 0
+        for j in 12..14:
+            right[idx] = i[j]
+            inc idx
+
+        graph[start] = (left, right)
+
+    var startingPoints: seq[array[3, char]] = @[]
     for i, v in graph:
         if i[2] == 'A':
             startingPoints.add(i)
@@ -57,7 +85,7 @@ proc part2(s: string): string =
         var posInStep = 0
         var step = 0
         while pos[2] != 'Z':
-            let d = steps[posInStep]
+            let d = s[posInStep]
             if d == 'R':
                 pos = graph[pos][1]
             else:
@@ -65,7 +93,7 @@ proc part2(s: string): string =
 
             inc step
             inc posInStep
-            if posInStep >= steps.len:
+            if posInStep >= stepsLen:
                 posInStep = 0
         cycleData.add(step)
 

@@ -155,7 +155,7 @@ template timeBlock*(name: string, body: untyped) =
     let delta = ((endTime - startTime).inMicroseconds / 1000)
     echo name & ": " & $delta & " ms"
 
-iterator fastSplit*(s: openarray[char], c: char): auto {.closure.} =
+iterator fastSplit*(s: openarray[char], c: char): auto =
     var i = 0
     var prev = 0
     while i < s.len:
@@ -179,13 +179,28 @@ type Tokenizer* = object
     s*: string
     offset*: int
 
+proc isEqual*(a: openarray[char], b: static[string]): bool {.inline.} =
+    # Don't check for length as b is static, so we can assume that a was correctly sliced.
+    for i in 0..<b.len: # notice we use b here as b is know at compile time so the loop can be unrolled.
+        if a[i] != b[i]: return false
+    return true
+
 proc advance*(t: var Tokenizer, c: char, until: int = int.high) =
     while t.offset < until and t.s[t.offset] != c:
+        inc t.offset
+
+proc advance*(t: var Tokenizer, s: static[string], until: int = int.high) =
+    while t.offset < until and not isEqual(t.s.toOpenArray(t.offset, t.offset+s.len-1), s):
         inc t.offset
 
 proc findNext*(t: Tokenizer, c: char, until: int = int.high): int =
     result = t.offset
     while result < until and result < t.s.len and t.s[result] != c:
+        inc result
+
+proc findNext*(t: Tokenizer, s: static[string], until: int = int.high): int =
+    result = t.offset
+    while result < until and result < (t.s.len - s.len + 1) and not isEqual(t.s.toOpenArray(result, result+s.len-1), s):
         inc result
 
 proc advanceFixed*(t: var Tokenizer, i: int) =
@@ -194,7 +209,7 @@ proc advanceFixed*(t: var Tokenizer, i: int) =
 proc atEnd*(t: Tokenizer): bool {.inline.} = return t.offset >= t.s.len
 
 proc eatUnsignedInt*(t: var Tokenizer): int =
-    while true:
+    while t.offset < t.s.len:
         let c = t.s[t.offset]
         if not isDigit(c):
             return result

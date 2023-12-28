@@ -25,7 +25,8 @@ Hands are primarily ordered based on type; for example, every *full house* is st
 If two hands have the same type, a second ordering rule takes effect. Start by comparing the *first card in each hand* . If these cards are different, the hand with the stronger first card is considered stronger. If the first card in each hand have the *same label* , however, then move on to considering the *second card in each hand* . If they differ, the hand with the higher second card wins; otherwise, continue with the third card in each hand, then the fourth, then the fifth.
 So, `33332`and `2AAAA`are both *four of a kind* hands, but `33332`is stronger because its first card is stronger. Similarly, `77888`and `77788`are both a *full house* , but `77888`is stronger because its third card is stronger (and both hands have the same first and second card).
 To play Camel Cards, you are given a list of hands and their corresponding *bid* (your puzzle input). For example:
-```32T3K 765
+```
+32T3K 765
 T55J5 684
 KK677 28
 KTJJT 220
