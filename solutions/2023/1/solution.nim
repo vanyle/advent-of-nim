@@ -8,7 +8,7 @@ proc parseInput(s: string): seq[seq[int]] =
     for i in 0..<c.len:
         var t: seq[int] = @[]
         for j in 0..<c[i].len:
-            if c[i][j].isDigit:
+            if c[i][j].isDigitFast:
                 t.add parseInt($c[i][j])
         r.add t
     return r
@@ -20,7 +20,7 @@ proc parseInput2(s: string): seq[seq[int]] =
         var t: seq[int] = @[]
         var j = 0
         while j < c[i].len:
-            if c[i][j].isDigit:
+            if c[i][j].isDigitFast:
                 t.add parseInt($c[i][j])
             else:
                 for k in 0..<sdigits.len:

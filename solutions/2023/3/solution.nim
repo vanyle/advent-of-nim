@@ -1,8 +1,8 @@
 import ../../../toolbox
 
 
-proc parseInput(s: string): seq[seq[char]] = 
-    return s.strip.split("\n").map(x => x.map(y => y))
+proc parseInput(s: string): seq[string] = 
+    return s.strip.split("\n")
 
 proc isNextTo(a: seq[int], b: int): bool =
     for i in a:
@@ -15,7 +15,7 @@ proc part1(s: string): string =
     var ipos: seq[(int,int)] = @[]
     for i in 0..<r.len:
         for j in 0..<r[i].len:
-            if not isDigit(r[i][j]) and r[i][j] != '.':
+            if not isDigitFast(r[i][j]) and r[i][j] != '.':
                 for iline in -1..1:
                     if i + iline < 0 or i + iline >= r.len: continue
                     var tmppos: seq[int] = @[]

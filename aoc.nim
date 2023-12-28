@@ -188,8 +188,8 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
         args.add([
             "-d:danger",
             "--opt:speed",
-            "--passL:-flto",
-            "--passC=-flto", # fast linking and no warnings!
+            "--passL:-flto=1",
+            "--passC=-flto=1", # fast linking and no warnings!
             "--passC:-w",
             "--passL:-w"
         ])

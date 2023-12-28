@@ -1,70 +1,109 @@
 import ../../../toolbox
 
 var maxCubes = {
-    "red": 12,
-    "green": 13,
-    "blue": 14
+    'r': 12,
+    'g': 13,
+    'b': 14
 }.toTable
 
-proc parseInput(s: string): seq[seq[Table[string, int]]] = 
-    var l = s.strip().split("\n")
+template parseInput(s: string, gameStart: untyped, inGame: untyped, gameEnd: untyped): untyped = 
+    var t: Tokenizer = Tokenizer(s: s, offset: 0)
 
-    for line in l:
-        var game = line.split(":")[1]
-        var draws = game.strip.split(";")
-        var cgame: seq[Table[string,int]]
-        for d in draws:
-            var cc = d.strip.split(",")
-            var tt: Table[string, int]
-            for el in cc:
-                var pair = el.strip.split(" ",2)
-                tt[pair[1]] = parseInt(pair[0])
-            cgame.add(tt)
-        result.add cgame
+    while not t.atEnd():
+        var eol = t.findNext('\n')
+
+        t.advance(':', eol)
+        t.advanceFixed(2) # eat ' :'
+
+        gameStart
+
+        while t.offset < eol:
+            # Game 1: 19 blue, 12 red; 19 blue, 2 green, 1 red; 13 red, 11 blue
+
+            var eob = t.findNext(';', eol)
+
+            while t.offset < eob:
+                var count {.inject.} = t.eatUnsignedInt()
+                t.advanceFixed(1) # eat space.
+                var color {.inject.} = t.s[t.offset] # store r,g or b.
+                
+                inGame
+
+                t.advance(',', eob)
+                t.advanceFixed(2) # skip the comma and space
+
+        gameEnd
+
+
+        t.advanceFixed(1) # skip end of line
 
 
 proc part1(s: string): string = 
-    var r = parseInput(s)
-
+    var t: Tokenizer = Tokenizer(s: s, offset: 0)
     var validIds = 0
-    for i in 0..<r.len:
-        var game = r[i]
+    var lineIdx = 1
+
+    while not t.atEnd():
+        var eol = t.findNext('\n')
         var isGameValid = true
-        for draws in game:
-            var isDrawValid = true
-            for color, count in draws:
+
+        t.advance(':', eol)
+        t.advanceFixed(2) # eat ' :'
+
+        while t.offset < eol:
+            # Game 1: 19 blue, 12 red; 19 blue, 2 green, 1 red; 13 red, 11 blue
+
+            var eob = t.findNext(';', eol)
+            var tt: Table[char, int]
+
+            while t.offset < eob:
+                var count = t.eatUnsignedInt()
+                t.advanceFixed(1) # eat space.
+                var color = t.s[t.offset] # store r,g or b.
+                tt[color] = count
+
+                # Process game:
                 if maxCubes[color] < count:
-                    isDrawValid = false
+                    isGameValid = false
+                    t.advance('\n')
                     break
-            if not isDrawValid:
-                isGameValid = false
-                break
+
+                t.advance(',', eob)
+                t.advanceFixed(2) # skip the comma and space
+
+
+        t.advanceFixed(1) # skip end of line
+
         if isGameValid:
-            validIds += (i+1)
+            validIds += lineIdx
+
+        inc lineIdx
 
     return $validIds
 
 
 
 proc part2(s: string): string = 
-    var r = parseInput(s)
-    var s = 0
+    var res = 0
+    var minVals = {
+        'r': 0,
+        'g': 0,
+        'b': 0
+    }.toTable
 
-    for i in 0..<r.len:
-        var game = r[i]
-        var minVals = {
-            "red": 0,
-            "green": 0,
-            "blue": 0
+    parseInput s:
+        minVals = {
+            'r': 0,
+            'g': 0,
+            'b': 0
         }.toTable
+    do:
+        minVals[color] = max(minVals[color], count)
+    do:
+        var power = minVals['r'] * minVals['g'] *  minVals['b']
+        res += power
 
-        for draws in game:
-            for color, count in draws:
-                minVals[color] = max(minVals[color], count)
-
-        var power = minVals["red"] * minVals["green"] *  minVals["blue"]
-        s += power
-    return $s
+    return $res
 
 
 run(2023, 2, part1, part2)
