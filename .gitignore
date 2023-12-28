@@ -3,3 +3,5 @@ input.txt
 *.exe
 adventofcode-2023
 clement-adventofcode-2023
+# the linux build
+aoc_linux
