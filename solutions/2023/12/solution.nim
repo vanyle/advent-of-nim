@@ -18,6 +18,15 @@ proc possibilities(pattern: string, pslice: int16, hintSlice: uint8, counterSeq:
     if (pattern, pslice, hintSlice, counterSeq) in memoTable:
         return memoTable[(pattern, pslice, hintSlice, counterSeq)]
 
+    if pslice == -1:  
+        if hintSlice > 1:
+            return 0
+        if hintSlice == 0 and counterSeq == 0:
+            return 1
+        if hintSlice == 1 and counterSeq == hints[0]:
+            return 1
+        return 0
+
     var brokenCounter = counterSeq
 
     for j in countdown(pslice, 0):
@@ -31,7 +40,6 @@ proc possibilities(pattern: string, pslice: int16, hintSlice: uint8, counterSeq:
                 memoTable[(pattern, pslice, hintSlice, counterSeq)] = r
                 return r
             else:
-                memoTable[(pattern, pslice, hintSlice, counterSeq)] = 0
                 return 0 # impossible!
         elif pattern[j] == '?':
             var p1 = pattern[0..<j] & '.'
@@ -44,18 +52,7 @@ proc possibilities(pattern: string, pslice: int16, hintSlice: uint8, counterSeq:
             return c1 + c2
 
     # make sure the counter and the hint match here.
-    if hintSlice > 1:
-        memoTable[(pattern, pslice, hintSlice, counterSeq)] = 0
-        return 0
-    if hintSlice == 1 and brokenCounter == hints[0]:
-        memoTable[(pattern, pslice, hintSlice, counterSeq)] = 1
-        return 1
-    if hintSlice == 0 and brokenCounter == 0:
-        memoTable[(pattern, pslice, hintSlice, counterSeq)] = 1
-        return 1
-
-    memoTable[(pattern, pslice, hintSlice, counterSeq)] = 0
-    return 0
+    return possibilities(pattern, -1, hintSlice, brokenCounter)
 
 
 proc part1(s: string): string = 
@@ -94,3 +91,4 @@ proc part2(s: string): string =
     return $res
 
 run(2023, 12, part1, part2)
+
