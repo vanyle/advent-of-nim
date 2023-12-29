@@ -1,5 +1,87 @@
 import ../../../toolbox
 
+import heapqueue, tables, hashes, options
+
+# A Star implementation, from the astar package.
+
+type
+    Distance* = int|float
+    Node* = concept n
+        `==`(n, n) is bool
+        `hash`(n) is Hash
+
+    Graph* = concept g
+        var node: Node
+        for neighbor in g.neighbors(node):
+            type(neighbor) is Node
+        cost(g, node, node) is Distance
+
+    Point* = concept p
+        p.x is Distance
+        p.y is Distance
+
+
+type
+    FrontierElem[N, D] = tuple[node: N, priority: D, cost: D]
+    CameFrom[N, D] = tuple[node: N, cost: D]
+
+proc `<`(a, b: FrontierElem): bool = a.priority < b.priority
+
+iterator backtrack[N, D](
+    cameFrom: Table[N, CameFrom[N, D]], start, goal: N
+): N =
+    yield start
+    var current: N = goal
+    var path: seq[N] = @[]
+    while current != start:
+        path.add(current)
+        current = `[]`(cameFrom, current).node
+
+    for i in countdown(path.len - 1, 0):
+        yield path[i]
+
+proc calcHeuristic[G: Graph, N: Node, D: Distance] (
+    graph: G,
+    next, start, goal: N,
+    current: FrontierElem[N, D],
+    cameFrom: Table[N, CameFrom[N, D]],
+): D {.inline.} =
+    when compiles(graph.heuristic(next, start, goal, current.node)):
+        return D(graph.heuristic(next, start, goal, current.node))
+
+    elif compiles(graph.heuristic(next, start, goal, current.node, none(N))):
+        var grandparent: Option[N]
+        if cameFrom.hasKey(current.node):
+            grandparent = some[N]( `[]`(cameFrom, current.node).node )
+        else:
+            grandparent = none(N)
+        return D(graph.heuristic(next, start, goal, current.node, grandparent))
+
+    else:
+        return D(graph.heuristic(next, goal))
+
+iterator path*[G: Graph, N: Node, D: Distance](graph: G, start, goal: N): N =
+    var frontier = initHeapQueue[FrontierElem[N, D]]()
+    frontier.push( (node: start, priority: D(0), cost: D(0)) )
+    var cameFrom = initTable[N, CameFrom[N, D]]()
+
+    while frontier.len > 0:
+        let current = frontier.pop
+        if current.node == goal:
+            for node in backtrack(cameFrom, start, goal):
+                yield node
+            break
+
+        for next in graph.neighbors(current.node):
+            let cost = current.cost + D( graph.cost(current.node, next) )
+            if not cameFrom.hasKey(next) or cost < `[]`(cameFrom, next).cost:
+                `[]=`(cameFrom, next, (node: current.node, cost: cost))
+                let priority: D = cost + calcHeuristic[G, N, D](
+                    graph, next, start, goal, current, cameFrom )
+                frontier.push( (next, priority, cost) )
+
+## =======================================================================
+
 proc parseInput(s: string): seq[seq[int8]] = 
     var lines = s.strip.split("\n")
     result = newSeq[seq[int8]](lines.len)

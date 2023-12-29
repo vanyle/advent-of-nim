@@ -4,49 +4,45 @@ proc parseInput(s: string): seq[string] =
     return s.strip.split("\n")
 
 proc tiltNorth(s: var seq[string]) =
-    var isUpdate = true
-    while isUpdate:
-        isUpdate = false
-        for i in 1..<s.len:
-            for j in 0..<s[i].len:
-                if s[i][j] == 'O' and s[i-1][j] == '.':
-                    s[i-1][j] = 'O'
-                    s[i][j] = '.'
-                    isUpdate = true
+    for i in 1..<s.len:
+        for j in 0..<s[i].len:
+            var pi = i
+            if s[pi][j] == 'O':
+                while pi-1 >= 0 and s[pi-1][j] == '.':
+                    s[pi-1][j] = 'O'
+                    s[pi][j] = '.'
+                    dec pi
 
 proc tiltWest(s: var seq[string]) =
-    var isUpdate = true
-    while isUpdate:
-        isUpdate = false
-        for i in 0..<s.len:
-            for j in 1..<s[i].len:
-                if s[i][j] == 'O' and s[i][j-1] == '.':
-                    s[i][j-1] = 'O'
-                    s[i][j] = '.'
-                    isUpdate = true
+    for i in 0..<s.len:
+        for j in 1..<s[i].len:
+            var pj = j
+            if s[i][j] == 'O':
+                while pj-1 >= 0 and s[i][pj-1] == '.':
+                    s[i][pj-1] = 'O'
+                    s[i][pj] = '.'
+                    dec pj
 
 proc tiltSouth(s: var seq[string]) =
-    var isUpdate = true
-    while isUpdate:
-        isUpdate = false
-        for i in countdown(s.len-2, 0):
-            for j in 0..<s[i].len:
-                if s[i][j] == 'O' and s[i+1][j] == '.':
-                    s[i+1][j] = 'O'
-                    s[i][j] = '.'
-                    isUpdate = true
-
+    for i in countdown(s.len-2, 0):
+        for j in 0..<s[i].len:
+            var pi = i
+            if s[i][j] == 'O':
+                while pi+1 < s.len and s[pi+1][j] == '.':
+                    s[pi+1][j] = 'O'
+                    s[pi][j] = '.'
+                    inc pi
 
 proc tiltEast(s: var seq[string]) =
-    var isUpdate = true
-    while isUpdate:
-        isUpdate = false
-        for i in 0..<s.len:
-            for j in countdown(s[0].len-2, 0):
-                if s[i][j] == 'O' and s[i][j+1] == '.':
-                    s[i][j+1] = 'O'
-                    s[i][j] = '.'
-                    isUpdate = true
+    let wi = s[0].len
+    for i in 0..<s.len:
+        for j in countdown(s[0].len-2, 0):
+            var pj = j
+            if s[i][j] == 'O':
+                while pj < wi and s[i][pj+1] == '.':
+                    s[i][pj+1] = 'O'
+                    s[i][pj] = '.'
+                    inc pj
 
 var cycleFinder: Table[seq[string], int]
 var callCounter = 0

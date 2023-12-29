@@ -1,9 +1,6 @@
 import ../../../toolbox
 
-proc parseInput(s: string): seq[string] = 
-    return s.strip.split(",")
-
-proc hashS(s: string): int =
+proc hashS(s: openarray[char]): int =
     var h = 0
     for j in 0..<s.len:
         var ascii = cast[int](s[j])
@@ -13,38 +10,41 @@ proc hashS(s: string): int =
     return h
 
 proc part1(s: string): string = 
-    var r = parseInput(s)
-
     var res = 0
-    for i in 0..<r.len:
-        var s = r[i]
-        res += hashS(r[i])
 
+    var i = 0
+    var h = 0
+    while i < s.len:
+        if s[i] == ',':
+            res += h
+            h = 0
+        else:
+            var ascii = cast[int](s[i])
+            h += ascii
+            h = h * 17
+            h = h mod 256
+
+        inc i
+
+    res += h
     return $res
 
 
 proc part2(s: string): string = 
-    var r = parseInput(s)
-    var boxes: seq[OrderedTable[string, int]] = newSeq[OrderedTable[string, int]](256)
+    var boxes: array[256, OrderedTable[string, int]]
 
-    for i in 0..<r.len:
-        var s = r[i]
-        var label = ""
-        var rest = ""
-        if "-" in s:
-            var spli = s.split("-",1)
-            label = spli[0]
-            rest = spli[1]
-        elif "=" in s:
-            var spli = s.split("=",1)
-            label = spli[0]
-            rest = spli[1]
+    for ll in s.fastSplit(','):
+        var i = 0
+        while ll[i] != '-' and ll[i] != '=':
+            inc i
 
+        var label = ll.toOpenArray(0, i-1).toString()
         var boxId = hashS(label)
-        if "=" in s:
-            var focLength = parseInt(rest)
+
+        if ll[i] == '=':
+            var focLength = parseUnsignedInt(ll.toOpenArray(i+1, ll.len-1))
             boxes[boxId][label] = focLength
-        elif "-" in s:
+        elif ll[i] == '-':
             boxes[boxId].del(label)
 
     var res = 0

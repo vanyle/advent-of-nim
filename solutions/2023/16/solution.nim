@@ -60,7 +60,7 @@ iterator processLightBit(lpos: (int, int), level: seq[string], d: Dir): (int, in
             yield (lightPos[0]+1, lightPos[1], DOWN)
             yield (lightPos[0]-1, lightPos[1], UP)
 
-proc updateState(lstate: var seq[seq[set[Dir]]], y: int, x: int, d: Dir): bool =
+proc updateState(lstate: var array[110,array[110,set[Dir]]], y: int, x: int, d: Dir): bool =
     # Check for out of bounds.
     if y < 0 or y >= lstate.len: return false
     if x < 0 or x >= lstate[y].len: return false
@@ -69,41 +69,28 @@ proc updateState(lstate: var seq[seq[set[Dir]]], y: int, x: int, d: Dir): bool =
     lstate[y][x].incl d
     return true
 
-var lstate: seq[seq[set[Dir]]] = newSeq[seq[set[Dir]]](0)
-proc simulateLight(level: seq[string], entryi = 0, entryj = 0, entryd: Dir = Right): seq[seq[set[Dir]]] =
-
-    # Store light dir of every tile
-    
+var lstate: array[110,array[110, set[Dir]]]
+proc simulateLight(level: seq[string], entryi = 0, entryj = 0, entryd: Dir = Right): array[110,array[110, set[Dir]]] =
     # Zero out lstate:
-    if level.len != lstate.len:
-        lstate = newSeq[seq[set[Dir]]](level.len)
-        for i in 0..<level.len:
-            lstate[i] = newSeq[set[Dir]](level[i].len)
-    else:
-        for i in 0..<lstate.len:
-            for j in 0..<lstate[i].len:
-                lstate[i][j] = {}
+    for i in 0..<lstate.len:
+        for j in 0..<lstate[0].len:
+            lstate[i][j] = {}
 
     lstate[entryi][entryj] = {entryd} # top-right, going right.
-    var changeOccured = true
 
-    # Update lstate until a steady state is reached.
-    var s = 0
-    while changeOccured:
-        inc s
-        changeOccured = false
-        for i in 0..<lstate.len:
-            for j in 0..<lstate[i].len:
-                let rays = lstate[i][j]
-                for r in rays:
-                    for lbit in processLightBit((i,j), level, r):
-                        var (y,x,newd) = lbit
-                        if lstate.updateState(y,x,newd):
-                            changeOccured = true
+    var toProcess: seq[(int, int)] = @[(entryi, entryj)]
+    while toProcess.len > 0:
+        var (i, j) = toProcess.pop()
+        let rays = lstate[i][j]
+        for r in rays:
+            for lbit in processLightBit((i,j), level, r):
+                var (y,x,newd) = lbit
+                if lstate.updateState(y,x,newd):
+                    toProcess.add((y, x))
 
     return lstate
 
-proc energized(lstate: seq[seq[set[Dir]]]): int =
+proc energized(lstate: array[110, array[110,set[Dir]]]): int =
     for i in 0..<lstate.len:
         for j in 0..<lstate[i].len:
             if lstate[i][j].len > 0:
