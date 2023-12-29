@@ -208,6 +208,13 @@ proc advanceFixed*(t: var Tokenizer, i: int) =
 
 proc atEnd*(t: Tokenizer): bool {.inline.} = return t.offset >= t.s.len
 
+proc parseUnsignedInt*(s: openarray[char]): int =
+    var i = 0
+    while i < s.len and isDigit(s[i]):
+        result *= 10
+        result += toDigit(s[i])
+        inc i
+
 proc eatUnsignedInt*(t: var Tokenizer): int =
     while t.offset < t.s.len:
         let c = t.s[t.offset]
