@@ -8,23 +8,7 @@
 
 #? replace(sub = "\t", by = "  ")
 import strformat, httpclient, os, strutils, parsexml, streams, osproc
-import marshal, tables, parseopt
-
-const textEditor = "subl" # or subl, as you'd like.
-
-const startingYear = 2023
-
-var authString = ""
-const credentialsFilePath = "credentials.txt"
-const solveStatusPath = "solveStatus.json"
-
-var isSpeed = false
-var noEdit = false
-var rerun = false
-
-if fileExists(credentialsFilePath):
-    authString = readFile(credentialsFilePath)
-
+import tables, parseopt, algorithm, json, times
 
 type ProblemId = object
     year: int
@@ -32,21 +16,73 @@ type ProblemId = object
     idx: int
 type SolveStatus = Table[ProblemId, bool]
 
-var solveStatus: SolveStatus
+type GlobalState = object
+    settings: Table[string, string]
+    solveStatus: Table[ProblemId, bool]
+    authCookie: string
+    rerun = false # is the problem already solved or not?
 
-proc saveSolveStatus() =
-    writeFile(solveStatusPath, $$solveStatus)
+var gstate: GlobalState
+const credentialsFilePath = "credentials.txt"
+const settingsPath = "settings.json"
+const solveStatusPath = "solveStatus.txt"
 
-if not fileExists(solveStatusPath):
-    writeFile(solveStatusPath, $$solveStatus)
-else:
-    var solveData = readFile(solveStatusPath)
-    solveStatus = to[SolveStatus](solveData)
+# ------------------------------
 
-if authString == "":
-    echo "Credentials file not found or is empty. (credentials.txt)"
-    echo "Fill it with your session cookie like this: session=..."
-    quit(1)
+proc saveSolveStatus(solveStatus: SolveStatus, filename = solveStatusPath) =
+    var serializedSolvedStatus = ""
+    var keys: seq[ProblemId]
+    for key, _ in solveStatus:
+        keys.add key
+    
+    keys.sort(proc(a, b: ProblemId): int =
+        if a.year != b.year: return cmp(a.year, b.year)
+        if a.day != b.day: return cmp(a.day, b.day)
+        return cmp(a.idx, b.idx)
+    )
+
+    for k in keys:
+        serializedSolvedStatus.add fmt"{k.year} {k.day} {k.idx} {solveStatus[k]}" & "\n"
+
+    writeFile(filename, serializedSolvedStatus)
+
+proc getSolveStatus(filename = solveStatusPath): SolveStatus =
+    if not fileExists(filename):
+        var ss = initTable[ProblemId, bool]()
+        saveSolveStatus(ss, filename)
+        return ss
+
+    var data = readFile(filename)
+    for line in data.splitLines:
+        var parts = line.strip().splitWhitespace(4)
+        if parts.len != 4:
+            continue
+        var pid: ProblemId
+        pid.year = parseInt(parts[0])
+        pid.day = parseInt(parts[1])
+        pid.idx = parseInt(parts[2])
+        result[pid] = parts[3] == "true"
+
+proc loadConfig() =
+    if not fileExists(settingsPath):
+        writeFile(settingsPath, "{}")
+
+    var jsonString = readFile(settingsPath)
+    let jsonObject = parseJson(jsonString)
+    for k, v in jsonObject.pairs:
+        if v.kind == JString:
+            gstate.settings[k] = v.str
+        elif v.kind == JBool or v.kind == JInt or v.kind == JFloat:
+            gstate.settings[k] = $v
+        # ignore other types.
+
+proc openTextEditor(filepath: string) =
+    let textEditor = gstate.settings.getOrDefault("editor.command", "subl")
+    discard execCmdEx(
+        fmt"{textEditor} {filePath}",
+        workingDir = getCurrentDir(),
+        options = {poEvalCommand, poUsePath}
+    ) # open text editor
 
 proc hasFileContent(path: string): bool =
     if not fileExists(path): return false
@@ -79,6 +115,8 @@ proc articleToMarkdown(source: string): string =
     var x: XmlParser
     x.open(newStringStream(source), "")
 
+    var inPre = false
+
     result = ""
     while true:
         x.next()
@@ -87,9 +125,13 @@ proc articleToMarkdown(source: string): string =
             result.add(x.charData)
         of xmlElementStart:
             if x.elementName == "code":
-                result.add "`"
+                if inPre:
+                    result.add "\n"
+                else:
+                    result.add "`"
             if x.elementName == "pre":
-                result.add "``"
+                inPre = true
+                result.add "```"
             if x.elementName == "em":
                 result.add "*"
             if x.elementName == "h2":
@@ -100,9 +142,11 @@ proc articleToMarkdown(source: string): string =
                 result.add "\n"
         of xmlElementEnd:
             if x.elementName == "code":
-                result.add "`"
+                if inPre:
+                    result.add "`"
             if x.elementName == "pre":
-                result.add "``\n"
+                inPre = false
+                result.add "```\n"
             if x.elementName == "em":
                 result.add "* "
             if x.elementName in ["p", "li", "ul", "h1", "h2"]:
@@ -171,7 +215,7 @@ proc extractTestCases(year: int, day: int, problem: string, problemIdx: int = 1,
         writeFile(filePath, toWrite)
 
     if openEditor:
-        discard execCmd(fmt"{textEditor} {filePath}") # open text editor
+        openTextEditor(filePath)
 
 proc querySolution(year: int, day: int, idxToSolve: int, input: string): string =
     let solutionPath = fmt"solutions/{year}/{day}/solution.nim"
@@ -179,20 +223,35 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
     if not fileExists(solutionPath):
         return ""
 
-    var args = @[
-        "r",
-        "--hints:off",
-        "--warnings:off",
-    ]
+    var isSpeed = gstate.settings.getOrDefault("speed", "false") == "true"
+
+    var args: seq[string] = @["r"]
+
     if isSpeed:
-        args.add([
+        let defaultSpeedArgs = [
+            "--hints:off",
+            "--warnings:off",
             "-d:danger",
             "--opt:speed",
             "--passL:-flto=1",
             "--passC=-flto=1", # fast linking and no warnings!
             "--passC:-w",
             "--passL:-w"
-        ])
+        ]
+        if "run.speed" in gstate.settings:
+            args.add (gstate.settings["run.speed"].splitWhitespace)
+        else:
+            args.add defaultSpeedArgs
+    else:
+        let defaultArgs = [
+            "--hints:off",
+            "--warnings:off",
+        ]
+        if "run.default" in gstate.settings:
+            args.add (gstate.settings["run.default"].splitWhitespace)
+        else:
+            args.add defaultArgs
+        
     args.add solutionPath
 
     var process = startProcess(
@@ -226,7 +285,6 @@ proc querySolution(year: int, day: int, idxToSolve: int, input: string): string 
         if line.startswith(seek):
             programResult = line[seek.len..<line.len].strip()
 
-
     return programResult
 
 proc downloadTask(year: int, day: int, isInput: bool = false): string =
@@ -236,7 +294,7 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
 
     var client = newHttpClient()
     client.headers = newHttpHeaders({
-        "Cookie": authString,
+        "Cookie": gstate.authCookie,
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
     })
 
@@ -251,14 +309,14 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
         client.close()
 
     echo "Network failure, unable to download: ", url
-    quit(1)
+    quit(0)
 
 proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): (bool, string) =
     # POST https://adventofcode.com/2015/day/1/answer
     # level={problemIdx}&answer={solution}
     var client = newHttpClient()
     client.headers = newHttpHeaders({
-        "Cookie": authString,
+        "Cookie": gstate.authCookie,
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
         "Content-Type": "application/x-www-form-urlencoded"
     })
@@ -294,11 +352,22 @@ proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): (bool
 proc setupProblem(year: int, day: int) =
     # We try to perform as little downloads as possible from the
     # website while still updating the files properly when needed.
+    let currentTime = now()
+    let currentYear = currentTime.year()
+    let currentMonth = currentTime.month().int # january = 1
+    let currentDay = currentTime.monthday()
+
+    if currentYear < year or (currentYear == year and currentMonth < 12) or
+            (currentYear == year and currentMonth == 12 and currentDay < day):
+        echo "The next advent of code problem is not available yet."
+        echo "You are trying to solve: ", year,",",day 
+        quit(0)
 
     var idxToSolve = 1
 
     var task: string
     var articles: seq[string]
+    var noEdit = gstate.settings.getOrDefault("noedit", "false") == "true"
 
     if not hasFileContent(fmt"cases/{year}/{day}/problem/problem1.txt"):
         task = downloadTask(year, day)
@@ -316,8 +385,8 @@ proc setupProblem(year: int, day: int) =
         if articles.len == 2:
             # Problem 2 has the same test cases, but different results usually.
             # We could copy the results over from problem 1...
-            solveStatus[ProblemId(year: year, day: day, idx: 1)] = true
-            saveSolveStatus()
+            gstate.solveStatus[ProblemId(year: year, day: day, idx: 1)] = true
+            saveSolveStatus(gstate.solveStatus)
 
             idxToSolve = 2
             let problemStatement = articleToMarkdown(articles[1])
@@ -336,7 +405,7 @@ proc setupProblem(year: int, day: int) =
     else:
         inputData = readFile(inputPath)
 
-    let solutionPath = fmt"solutions/{year}/{day}/solution.nim"
+    let solutionPath = fmt"./solutions/{year}/{day}/solution.nim"
     createFileIfNotExists(solutionPath)
 
     var solutionTemplate = ""
@@ -359,7 +428,7 @@ proc setupProblem(year: int, day: int) =
 
     if readFile(solutionPath).len == 0:
         writeFile(solutionPath, solutionTemplate)
-        discard execCmd(fmt"{textEditor} {solutionPath}")
+        openTextEditor(solutionPath)
     else:
         # Run the solution, get the numbers and submit them.
         
@@ -368,7 +437,6 @@ proc setupProblem(year: int, day: int) =
 
         if testData.len == 0:
             echo "No test data found."
-
 
         var allCorrect = true
         echo fmt"Executing solution for {year}/{day}"
@@ -380,7 +448,7 @@ proc setupProblem(year: int, day: int) =
                 allCorrect = false
                 echo fmt"Program for solving {year}/{day} (part {idxToSolve}) is not finished!"
                 # subl -n left_file right_file --command "new_pane"
-                discard execCmd(fmt"{textEditor} {solutionPath}")
+                openTextEditor(solutionPath)
                 break
 
             if programResult != solution:
@@ -400,7 +468,7 @@ proc setupProblem(year: int, day: int) =
                 echo "There is nothing to submit, check your program."
                 return
 
-            if rerun:
+            if gstate.rerun:
                 return
 
             echo "Submit it? (y/n): "
@@ -409,8 +477,8 @@ proc setupProblem(year: int, day: int) =
                 var (isok, reason) = submitAnswer(year, day, idxToSolve, programResult)
                 if isok:
                     echo "CORRECT !"
-                    solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
-                    saveSolveStatus()
+                    gstate.solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
+                    saveSolveStatus(gstate.solveStatus)
                 else:
                     echo "NOT CORRECT :'("
                     echo "Your answer is too ",reason
@@ -420,49 +488,73 @@ proc setupProblem(year: int, day: int) =
                 echo fmt"Was this problem already solved ? (y/n)"
                 line = stdin.readLine()
                 if line == "y":
-                    solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
-                    saveSolveStatus()
+                    gstate.solveStatus[ProblemId(year: year, day: day, idx: idxToSolve)] = true
+                    saveSolveStatus(gstate.solveStatus)
 
-# Start by finding the first unsolved problem:
-var solveYear = startingYear
-var solveDay = 1
-
-var p = initOptParser(quoteShellCommand(commandLineParams()))
-
-while true:
-    p.next()
-    case p.kind:
-    of cmdEnd: break
-    of cmdArgument:
-        discard
-    of cmdLongOption, cmdShortOption:
-        var k = p.key
-        if k == "d" or k == "day":
-            solveDay = parseInt(p.val)
-            rerun = true
-        elif k == "y" or k == "year":
-            solveYear = parseInt(p.val)
-            rerun = true
-        elif k == "noedit":
-            noEdit = true
-        elif k == "speed":
-            isSpeed = true
-
-
-if not rerun: # auto detect day
-    for pid, status in solveStatus:
-        if pid.year > solveYear:
-            solveYear = pid.year
-        if pid.year >= solveYear and pid.day >= solveDay:
-            solveDay = pid.day
-
-if rerun or ProblemId(year: solveYear, day: solveDay, idx: 2) notin solveStatus:
-    setupProblem(solveYear, solveDay)
-else:
-    # Add 1.
-    if solveDay < 25: inc solveDay
+proc main() =
+    if fileExists(credentialsFilePath):
+        gstate.authCookie = readFile(credentialsFilePath)
     else:
-        inc solveYear
-        solveDay = 1
-    setupProblem(solveYear, solveDay)
+        writeFile(credentialsFilePath, "session=...\n")
 
+
+    if gstate.authCookie.len <= 20:
+        echo fmt"Credentials file not found, is empty or incorrectly formatted. ({credentialsFilePath})"
+        echo "Fill it with your advent of code session cookie like this: session=..."
+        echo "You can find it in the chrome developer console (Network Tab) when checking the advent of code website."
+        quit(0)
+
+    gstate.solveStatus = getSolveStatus()
+    loadConfig()
+
+    # Start by finding the first unsolved problem:
+    var solveYear = gstate.settings.getOrDefault("startingYear", "2015").parseInt
+    var solveDay = 1
+
+    var p = initOptParser(quoteShellCommand(commandLineParams()))
+    var yearSpecified = false
+
+    while true:
+        p.next()
+        case p.kind:
+        of cmdEnd: break
+        of cmdArgument:
+            discard
+        of cmdLongOption, cmdShortOption:
+            var k = p.key
+            if k == "d" or k == "day":
+                solveDay = parseInt(p.val)
+                gstate.rerun = true
+            elif k == "y" or k == "year":
+                solveYear = parseInt(p.val)
+                yearSpecified = true
+            elif k == "noedit":
+                gstate.settings["noedit"] = "true"
+            elif k == "speed":
+                gstate.settings["speed"] = "true"
+
+    if not gstate.rerun:
+        if not yearSpecified: # auto detect day + year
+            for pid, status in gstate.solveStatus:
+                if pid.year > solveYear:
+                    solveYear = pid.year
+                    solveDay = pid.day
+                if pid.year >= solveYear and pid.day > solveDay:
+                    solveDay = pid.day
+                    solveYear = pid.year
+        else: # auto detect day
+            for pid, status in gstate.solveStatus:
+                if pid.year == solveYear and pid.day > solveDay:
+                    solveDay = pid.day
+
+    if gstate.rerun or ProblemId(year: solveYear, day: solveDay, idx: 2) notin gstate.solveStatus:
+        setupProblem(solveYear, solveDay)
+    else:
+        # Add 1.
+        if solveDay < 25: inc solveDay
+        else:
+            inc solveYear
+            solveDay = 1
+        setupProblem(solveYear, solveDay)
+
+main()

@@ -36,17 +36,6 @@ proc reverseTable* [A,B](t: Table[A,B]): Table[B,A] =
     for k,v in t:
         result[v] = k
 
-# ------------ STRING -----------------
-
-iterator findAll*(input: string, pattern: seq[string]): seq[string] =
-    ## pattern = ["*","hello","*"]
-    ## input = this is hello hello world
-    ## output:
-    ## yield ["this is ","hello"," hello world"]
-    ## yield ["this is hello ","hello"," world"]
-    discard
-
-
 # We can define editDistance recursively using a cache.
 # https://en.wikipedia.org/wiki/Damerau%E2%80%93Levenshtein_distance
 proc editDistance*[T](a: seq[T], b: seq[T]): int =
@@ -85,7 +74,8 @@ proc makeGrid*[T](x:int,y:int,filler: T): seq[seq[T]] =
     result = newSeq[T](y)
     for i in 0..<y:
         result[i] = newSeq[T](x)
-
+        for j in 0..<x:
+            result[i][j] = filler
 
 iterator neighFour*[T](a: openarray[openarray[T]], x,y: int): T =
     if x+1 < a[y+1].len:
@@ -175,6 +165,9 @@ proc isDigitFast*(c: char): bool {.inline.} =
 proc toDigit*(c: char): int {.inline.} =
     return cast[int](c) - cast[int]('0')
 
+proc toDigitOfType*[T](c: char): T {.inline.} =
+    return cast[T](c) - cast[T]('0')
+
 type Tokenizer* = object
     s*: string
     offset*: int
@@ -210,15 +203,23 @@ proc atEnd*(t: Tokenizer): bool {.inline.} = return t.offset >= t.s.len
 
 proc parseUnsignedInt*(s: openarray[char]): int =
     var i = 0
-    while i < s.len and isDigit(s[i]):
+    while i < s.len and isDigitFast(s[i]):
         result *= 10
         result += toDigit(s[i])
         inc i
 
+proc parseUnsignedIntOfSize*[T](s: openarray[char]): T =
+    var i = 0
+    while i < s.len and isDigitFast(s[i]):
+        result *= 10
+        result += toDigitOfType[T](s[i])
+        inc i
+
+
 proc eatUnsignedInt*(t: var Tokenizer): int =
     while t.offset < t.s.len:
         let c = t.s[t.offset]
-        if not isDigit(c):
+        if not isDigitFast(c):
             return result
         var d = toDigit(c)
         result *= 10
@@ -236,7 +237,7 @@ proc ints*(s: openarray[char], cap: int = 3): seq[int] =
     for i in 0..<s.len:
         if s[i] == '-':
             nflag = -1
-        elif isDigit(s[i]):
+        elif isDigitFast(s[i]):
             isP = true
             p *= 10
             p += toDigit(s[i]) * nflag

@@ -1,7 +1,8 @@
 credentials.txt
 input.txt
 *.exe
-adventofcode-2023
-clement-adventofcode-2023
+other_solutions
+solveStatus.json
+solveStatus.txt
 # the linux build
 aoc_linux

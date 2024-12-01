@@ -9,41 +9,36 @@ func parseInput(s: string): seq[(string, seq[uint8])] =
             s[1].split(",").map(x => x.parseInt().uint8)
         ))
 
-proc checkFit(pattern: string, start: int, stop: int): bool =
-    for i in start..<stop:
-        if pattern[i] == '.':
-            return false
-
-    if start > 0 and pattern[start - 1] == '#': return false # avoid merge on borders
-    if stop < pattern.len and pattern[stop] == '#': return false
-    return true
-
 var hints: seq[uint8]
-var memoTable: Table[(int16, uint8), int]
-proc possibilities(pattern: string, pslice: int16, hintSlice: uint8): int =
-    if hintSlice == hints.len.uint8:
-        for c in pattern.toOpenArray(pslice, pattern.len - 1):
+var memoTable: Table[(int16, int8), int]
+proc possibilities(pattern: string, pslice: int16, hintSlice: int8): int =
+    if hintSlice == -1:
+        for c in pattern.toOpenArray(0, pslice):
             if c == '#': return 0
         return 1
     
-    if pslice == pattern.len:
+    if pslice == -1:
         return 0
-
+    
     if (pslice, hintSlice) in memoTable:
         return memoTable[(pslice, hintSlice)]
 
-    let currentGroupSize = hints[hintSlice]
+    let hint = hints[hintSlice].int
     var res = 0
 
-    if currentGroupSize.int + pslice <= pattern.len:
-        for i in pslice ..< pattern.len - currentGroupSize.int + 1:
-            if checkFit(pattern, i, i + currentGroupSize.int):
-                # assume the ??? stand for ### in this part
-                let nextSlice = min(pattern.len, i + currentGroupSize.int + 1)
-                res += possibilities(pattern, nextSlice.int16, hintSlice + 1)
+    for i in countdown(pslice.int, hint - 1):
+        var isMatch = true
+        for i in (i - hint + 1)..<(i + 1):
+            isMatch = isMatch and not (pattern[i] == '.')
+        isMatch = isMatch and not (i - hint + 1 > 0 and pattern[i - hint] == '#')
+        isMatch = isMatch and not (i + 1 < pattern.len and pattern[i + 1] == '#')
 
-            if pattern[i] == '#':
-                break
+        if isMatch:
+            let nextSlice = max(-1, i - hint - 1)
+            res += possibilities(pattern, nextSlice.int16, hintSlice - 1)
+
+        if pattern[i] == '#':
+            break
 
     memoTable[(pslice, hintSlice)] = res
     return res
@@ -55,7 +50,7 @@ proc part1(s: string): string =
     for i in r:
         hints = i[1]
         memoTable.clear()
-        var p = possibilities(i[0], 0, 0)
+        var p = possibilities(i[0], i[0].len.int16 - 1, hints.len.int8 - 1)
         res += p
     return $res
 
@@ -78,7 +73,7 @@ proc part2(s: string): string =
         var j = duplicate(i[0], i[1])
         hints = j[1]
         memoTable.clear()
-        var p = possibilities(j[0], 0, 0)
+        var p = possibilities(j[0], j[0].len.int16 - 1, hints.len.int8 - 1)
         res += p
 
     return $res

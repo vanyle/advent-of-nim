@@ -1,11 +1,20 @@
 {
 	// when opening the editor, this is run the
-	// {editor} {filename} command. 
-	"editor": "subl",
-	"runOptions":"-d:release",
-	"open":{
-		"solution": true,
-		"input": true,
-		"problem": true
-	}
+	// {editor} {filename} command.
+	"editor.command": "code.cmd --reuse-window",
+
+	// Arguments for Nim compilation
+	"run.default": "--hints:off --warnings:off",
+	"run.speed": "--hints:off --warnings:off -d:danger --opt:speed --passL:-flto=1 --passC:-flto=1 --passC:-w --passL:-w",
+
+	// What files to open automatically
+	// solution is the nim file with your solution, input is the text file with the input and problem is the problem statement in markdown.
+	"open.solution": true,
+	"open.input": true,
+	"open.problem": true,
+
+	// Can be overwriten using the `-y` switch.
+	// This is used so that you can solve the problem of a specific year without solving all previous years.
+	// You can set the starting year to "current" to start from the current year.
+	"startingYear": 2023
 }
