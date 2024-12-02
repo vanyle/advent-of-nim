@@ -7,7 +7,7 @@
 ]#
 
 #? replace(sub = "\t", by = "  ")
-import strformat, httpclient, os, strutils, parsexml, streams, osproc
+import strformat, httpclient, os, strutils, parsexml, streams, osproc, net
 import tables, parseopt, algorithm, json, times
 
 type ProblemId = object
@@ -292,24 +292,29 @@ proc downloadTask(year: int, day: int, isInput: bool = false): string =
     if isInput:
         url &= "/input"
 
+    # var ctx = newContext(verifyMode=CVerifyNone)
     var client = newHttpClient()
     client.headers = newHttpHeaders({
         "Cookie": gstate.authCookie,
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
     })
 
+    when defined(macosx):
+        var r = execCmdEx(fmt"curl -sSL --cookie {gstate.authCookie} {url}")
+        return r.output
+    else:
+        try:
+            let response = client.getContent(url)
+            return response
+        except Exception as err:
+            echo "Error: ",err.msg
+            echo "Is your cookie valid?"
+            echo err.getStackTrace()
+        finally:
+            client.close()
 
-    try:
-        let response = client.getContent(url)
-        return response
-    except Exception as err:
-        echo "Error: ",err.msg
-        echo "Is your cookie valid?"
-    finally:
-        client.close()
-
-    echo "Network failure, unable to download: ", url
-    quit(0)
+        echo "Network failure, unable to download: ", url
+        quit(0)
 
 proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): (bool, string) =
     # POST https://adventofcode.com/2015/day/1/answer
