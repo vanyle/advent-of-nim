@@ -123,6 +123,8 @@ proc articleToMarkdown(source: string): string =
         case x.kind
         of xmlCharData:
             result.add(x.charData)
+        of xmlWhiteSpace:
+            result.add(x.charData)
         of xmlElementStart:
             if x.elementName == "code":
                 if inPre:
@@ -142,11 +144,11 @@ proc articleToMarkdown(source: string): string =
                 result.add "\n"
         of xmlElementEnd:
             if x.elementName == "code":
-                if inPre:
-                    result.add "`"
+                if not inPre:
+                    result.add "` "
             if x.elementName == "pre":
                 inPre = false
-                result.add "```\n"
+                result.add "\n```\n"
             if x.elementName == "em":
                 result.add "* "
             if x.elementName in ["p", "li", "ul", "h1", "h2"]:

@@ -5,6 +5,7 @@ other_solutions
 solveStatus.json
 solveStatus.txt
 # the linux build
+settings.json
 /aoc
 aoc_linux
 .DS_Store

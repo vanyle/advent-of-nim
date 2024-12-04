@@ -70,6 +70,17 @@ proc getArr*[T](a: openarray[openarray[T]], x,y: int, default: T): T =
         return default
     return a[y][x]
 
+proc getArr*(a: seq[string], x,y: int, default: char): char =
+    if x < 0 or y < 0 or y >= a.len or x >= a[y].len:
+        return default
+    return a[y][x]
+
+proc bToI8*(a: bool): int8 =
+    return cast[int8](a)
+
+proc bToI*(a: bool): int =
+    return cast[int](a)
+
 proc makeGrid*[T](x:int,y:int,filler: T): seq[seq[T]] =
     result = newSeq[T](y)
     for i in 0..<y:
