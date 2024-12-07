@@ -346,13 +346,15 @@ proc submitAnswer(year: int, day: int, problemIdx: int, solution: string): (bool
     finally:
         client.close()
 
-    if "<p>That's the right answer!" in r:
+    if "That's the right answer!" in r:
         return (true, "")
     else:
         if "is too low" in r:
             return (false, "low")
         elif "is too high" in r:
             return (false, "high")
+
+        echo "Unknown Response: ",r
 
     return (false, "???")
 
