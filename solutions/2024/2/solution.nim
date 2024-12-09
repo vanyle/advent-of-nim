@@ -1,11 +1,8 @@
 import ../../../toolbox
 
-proc parseInput(s: string): seq[string] = 
-    return s.strip.split("\n")
-
 proc isSafe(lvls: seq[int]): bool = 
     var isUp = lvls[1] > lvls[0] and lvls[2] > lvls[1]
-    var isSafe = true
+
     for i in 0..<lvls.len-1:
         if (lvls[i+1] > lvls[i]) != isUp:
             return false
@@ -15,11 +12,12 @@ proc isSafe(lvls: seq[int]): bool =
     return true
 
 proc part1(s: string): string = 
-    var r = parseInput(s)
     var safeCount = 0
 
-    for l in r:
-        var lvls = ints(l, 7)
+    for l in s.fastSplit('\n'):
+        if l.len <= 2:
+            continue
+        var lvls = ints(l, 8)
         if isSafe(lvls):
             safeCount.inc()
 
@@ -27,11 +25,12 @@ proc part1(s: string): string =
 
 
 proc part2(s: string): string = 
-    var r = parseInput(s)
     var safeCount = 0
 
-    for l in r:
-        var lvls = ints(l, 7)
+    for l in s.fastSplit('\n'):
+        if l.len <= 2:
+            continue
+        var lvls = ints(l, 8)
         if isSafe(lvls):
             safeCount.inc()
             continue
