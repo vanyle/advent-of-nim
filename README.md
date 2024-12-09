@@ -6,7 +6,7 @@ that fetchs the example, the problem and
 automates trivial parts of the solving process for the <a href="https://adventofcode.com/">Advent of Code</a></i>
 </p>
 <p align="center">
-  <a href="https://github.com/vanyle/aiguillage/"><img src="https://img.shields.io/github/stars/vanyle/aiguillage?style=social" alt="GitHub Stars"></a>
+  <a href="https://github.com/vanyle/advent-of-nim/"><img src="https://img.shields.io/github/stars/vanyle/advent-of-nim?style=social" alt="GitHub Stars"></a>
 </p>
 
 <hr class="solid">
