@@ -409,7 +409,7 @@ proc setupProblem(year: int, day: int) =
     var inputData = ""
     if not fileExists(inputPath):
         # never download the input twice as it never changes !!!
-        inputData = downloadTask(year, day, isInput = true)
+        inputData = downloadTask(year, day, isInput = true).strip()
         writeFile(inputPath, inputData)
     else:
         inputData = readFile(inputPath)
